@@ -1,0 +1,23 @@
+{
+  "network": "fuji",
+  "chainId": 43113,
+  "deployer": "0xC3D73FAf9aa330D3448bEEF134Cff4560C75f753",
+  "deployedAt": "2026-11-20T15:57:06.198Z",
+  "contracts": {
+    "DemoZAR": {
+      "address": "0x1be50e878326F3DDb90B03a817B0F266B23a58E1",
+      "blockNumber": 61385449
+    },
+    "CivicProofFactory": {
+      "address": "0x6E243F5e663DB56f8d4e5e3B32E24BAf3779c791",
+      "blockNumber": 61385456
+    }
+  },
+  "projects": {
+    "10000000-0000-4000-8000-000000000001": {
+      "projectId": "0x4cb2c90e03c2864a6f1c4aba5e6da36fda63cc65a33380ba8b7ad2ca9df0835e",
+      "wallet": "0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D",
+      "allocatedCents": "200000000"
+    }
+  }
+}
