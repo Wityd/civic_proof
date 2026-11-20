@@ -1,0 +1,79 @@
+[
+  {
+    "id": "tx_007",
+    "project_id": "CP001",
+    "invoice_id": "inv_003",
+    "kind": "invoice_rejected",
+    "moves_money": false,
+    "amount_cents": null,
+    "tx_hash": "sim_5c1e9a7b3d2f4e6a8b0c1d2e3f4a5b6c7d8e9f01",
+    "mode": "simulated",
+    "created_at": "2026-11-20T10:02:00Z"
+  },
+  {
+    "id": "tx_006",
+    "project_id": "CP001",
+    "invoice_id": "inv_001",
+    "kind": "payment",
+    "moves_money": true,
+    "amount_cents": 11840000,
+    "tx_hash": "sim_9f3a2b7c4d1e8f6a5b0c3d2e1f4a7b6c9d8e0f12",
+    "mode": "simulated",
+    "created_at": "2026-11-20T09:15:00Z"
+  },
+  {
+    "id": "tx_005",
+    "project_id": "CP001",
+    "invoice_id": "inv_004",
+    "kind": "invoice_submitted",
+    "moves_money": false,
+    "amount_cents": null,
+    "tx_hash": "sim_2a4c6e8f0b1d3f5a7c9e1b3d5f7a9c0e2b4d6f83",
+    "mode": "simulated",
+    "created_at": "2026-11-19T14:40:00Z"
+  },
+  {
+    "id": "tx_004",
+    "project_id": "CP001",
+    "invoice_id": "inv_003",
+    "kind": "invoice_submitted",
+    "moves_money": false,
+    "amount_cents": null,
+    "tx_hash": "sim_7e5d3c1b9a8f6e4d2c0b1a3f5e7d9c8b6a4f2e01",
+    "mode": "simulated",
+    "created_at": "2026-11-19T09:05:00Z"
+  },
+  {
+    "id": "tx_003",
+    "project_id": "CP001",
+    "invoice_id": "inv_002",
+    "kind": "invoice_submitted",
+    "moves_money": false,
+    "amount_cents": null,
+    "tx_hash": "sim_b3d5f7a9c1e2b4d6f8a0c2e4b6d8f0a1c3e5b7d9",
+    "mode": "simulated",
+    "created_at": "2026-11-18T15:20:00Z"
+  },
+  {
+    "id": "tx_002",
+    "project_id": "CP001",
+    "invoice_id": "inv_001",
+    "kind": "invoice_submitted",
+    "moves_money": false,
+    "amount_cents": null,
+    "tx_hash": "sim_d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2",
+    "mode": "simulated",
+    "created_at": "2026-11-18T11:00:00Z"
+  },
+  {
+    "id": "tx_001",
+    "project_id": "CP001",
+    "invoice_id": null,
+    "kind": "allocation",
+    "moves_money": true,
+    "amount_cents": 200000000,
+    "tx_hash": "sim_0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
+    "mode": "simulated",
+    "created_at": "2026-11-10T08:00:00Z"
+  }
+]
