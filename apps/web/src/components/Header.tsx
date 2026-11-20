@@ -4,7 +4,7 @@ import type { Role } from '../types'
 import { ViewAsSwitcher } from './ViewAsSwitcher'
 
 const NAV: { to: string; label: string; roles: Role[] | 'all' }[] = [
-  { to: '/', label: 'Projects', roles: 'all' },
+  { to: '/projects', label: 'Projects', roles: 'all' },
   { to: '/supplier/invoices', label: 'My invoices', roles: ['supplier'] },
   { to: '/supplier/invoices/new', label: 'New invoice', roles: ['supplier'] },
   { to: '/review', label: 'Review queue', roles: ['municipality'] },
