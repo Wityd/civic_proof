@@ -7,7 +7,9 @@ Project: `CivicProof_Project` (`crshjvjrgnnypxbpjmob`). Branch: `p2/backend`.
 P3's wallet update is applied: see [P3-INTEGRATION.md](P3-INTEGRATION.md).
 `project_wallets` stores one real wallet per project per chain. Transaction modes
 include `bsc`; operations include `register_milestone`. The table is currently
-empty until P3 supplies confirmed deployment addresses.
+populated for CP001 on Fuji with P3's verified wallet address. See
+[P3-INTEGRATION.md](P3-INTEGRATION.md) for the read-only chain checks. Runtime mode
+remains simulated until the live adapter is ready.
 
 - 14 application tables in `public`, with UUID keys, foreign keys, indexes,
   integer-cent money fields and validation constraints.
