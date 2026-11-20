@@ -73,7 +73,7 @@ await edge(`/payments/${invoice.id}/execute`, {});
 
 Other calls: `/invoices/:id/hold` and `/reject` require `{reason}`;
 `/milestones/:id/register` and `/verify` take `{}`;
-`/milestones/:id/confirm` takes `{note}` and returns HTTP 201;
+`/milestones/:id/confirm` takes `{answer, note}` and returns HTTP 201;
 `/milestones/:id/evidence` takes multipart `file` and optional `caption`.
 Duplicate images return `DUPLICATE_EVIDENCE`. Community confirmation never
 unlocks payment; official verification does.
@@ -110,3 +110,19 @@ any listed status, under the caller's existing RLS permissions. A single status
 and an omitted filter both remain supported. Spaces and duplicates are accepted;
 unknown statuses and empty list entries return HTTP 400. Combine with
 `project_id=UUID` to limit results to a project.
+
+### Milestones, delivery answers and approver names
+
+`GET /projects`, `GET /projects/:id` and `get_public_dashboard` include
+`milestones: {id, code, title, description, status, verified_at}[]` on each project.
+The array is empty for projects without milestones. Registration remains separate
+from milestone status (`pending` or `verified`).
+
+Community confirmation accepts `answer: 'yes' | 'no' | 'not_sure'` and optional
+`note`. Its response is an array of inserted verification rows including `answer`.
+Older note-only submissions and existing rows have `answer: null`. Invalid values
+return HTTP 400; a community answer never authorises payment.
+
+`GET /invoices/:id` adds `actor_display_name` to each item in `approvals` for
+authorised invoice readers, including the auditor. It is the current profile name;
+no additional profile fields are exposed. Raw table reads do not add this field.

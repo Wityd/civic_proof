@@ -324,6 +324,40 @@ Deno.test({
         eq((await adapter.receipt('0x' + 'f'.repeat(64))).status, 'pending', 'missing receipt does not prove failure');
       });
 
+      await t.step('public project milestones and authorised approval names match P1 contract', async () => {
+        const d = await dashboard();
+        eq(d.milestones.length, 1, 'one milestone');
+        eq(d.milestones[0].id, M1, 'correct project milestone');
+        eq(d.milestones[0].status, 'verified', 'delivery state');
+        eq(Object.keys(d.milestones[0]).sort().join(','), 'code,description,id,status,title,verified_at', 'only public milestone fields');
+        await db.exec('set role service_role');
+        try {
+          for (const actor of [U.municipality,U.auditor,U.supplier]) {
+            const approvals = await rpc('cp_invoice_approvals',{p_actor:actor,p_invoice_id:inv1.payload.id}) as {actor_display_name:string}[];
+            eq(approvals[0].actor_display_name, 'municipality', 'approver name');
+          }
+          await expectError(rpc('cp_invoice_approvals',{p_actor:U.citizen,p_invoice_id:inv1.payload.id}),'FORBIDDEN');
+        } finally { await db.exec('reset role'); }
+        const privilege = await one("select has_function_privilege('authenticated','public.cp_invoice_approvals(uuid,uuid)','execute') as allowed");
+        eq(privilege?.allowed, false, 'browser cannot impersonate an actor via RPC');
+      });
+
+      await t.step('delivery answers are constrained community evidence and never verify a milestone', async () => {
+        for (const answer of ['yes','no','not_sure',null]) {
+          const milestone = crypto.randomUUID();
+          await db.query("insert into public.milestones(id,project_id,code,title) values($1,$2,$3,'Answer test')",[milestone,CP001,`answer-${answer}`]);
+          await db.query("insert into public.verifications(milestone_id,actor_id,kind,answer,note) values($1,$2,'community',$3,'Evidence only')",[milestone,U.citizen,answer]);
+          eq((await one('select answer from public.verifications where milestone_id=$1',[milestone]))?.answer,answer,'answer preserved');
+          eq((await one('select status from public.milestones where id=$1',[milestone]))?.status,'pending','not officially verified');
+        }
+        for (const [kind,answer] of [['community','maybe'],['official','yes']]) {
+          let rejected=false;
+          try { await db.query('insert into public.verifications(milestone_id,actor_id,kind,answer) values($1,$2,$3,$4)',[M1,U.citizen,kind,answer]); }
+          catch {rejected=true;}
+          assert(rejected,'invalid answer or official answer refused');
+        }
+      });
+
       await t.step('simulated mode is untouched: chain-mode invoices cannot be decided there', async () => {
         await db.exec(`update private.runtime_config set wallet_mode='simulated'`);
         const anyFuji = await one(`select id from public.invoices where ledger_mode='fuji' and status='on_hold'`);

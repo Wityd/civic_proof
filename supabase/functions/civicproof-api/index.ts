@@ -141,7 +141,8 @@ async function handle(req: Request): Promise<Response> {
     if (invoiceRoute && req.method === 'GET' && !invoiceRoute[2]) {
       const rows = await db(`invoices?id=eq.${uuid(invoiceRoute[1])}&select=*,items:invoice_items(*),ai_reviews(*),approvals(*),transactions(*)`, 'GET', undefined, token);
       if (!rows[0]) throw new ApiError('NOT_FOUND', 'Invoice not found.', 404);
-      return response({ data: rows[0] });
+      const approvals = await rpc('cp_invoice_approvals', { p_actor: actor, p_invoice_id: rows[0].id });
+      return response({ data: { ...rows[0], approvals } });
     }
     if (req.method !== 'POST') throw new ApiError('NOT_FOUND', 'Route not found.', 404);
 
@@ -197,7 +198,12 @@ async function handle(req: Request): Promise<Response> {
         if (context.mode !== 'simulated') { const data = await chainMilestone(chainDeps, actor, id, milestone[2] as 'register' | 'verify'); return response({ data }, chainHttpStatus(data)); }
         return response({ data: await rpc('cp_milestone', { p_actor: actor, p_milestone: id, p_action: milestone[2] }) });
       }
-      if (milestone[2] === 'confirm') { requireRole('citizen'); const body = await json(req); return response({ data: await db('verifications', 'POST', { milestone_id: id, actor_id: actor, kind: 'community', note: text(body.note, 4000, false) }, token) }, 201); }
+      if (milestone[2] === 'confirm') {
+        requireRole('citizen'); const body = await json(req);
+        const answer = body.answer ?? null;
+        if (answer !== null && !['yes','no','not_sure'].includes(answer as string)) throw new ApiError('VALIDATION', 'Answer must be yes, no or not_sure.');
+        return response({ data: await db('verifications', 'POST', { milestone_id: id, actor_id: actor, kind: 'community', answer, note: text(body.note, 4000, false) }, token) }, 201);
+      }
       requireRole('supplier', 'citizen'); const form = await multipart(req);
       const file = await upload(form.get('file'), actor, 'evidence');
       try { return response({ data: await rpc('cp_add_evidence', { p_actor: actor, p_milestone: id, p_path: file.path, p_hash: file.hash, p_caption: text(form.get('caption'), 4000, false) }) }, 201); }
