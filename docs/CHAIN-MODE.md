@@ -20,27 +20,50 @@ Every response in chain mode adds `chain_status` (`confirmed` or `pending`) and 
 - If the network is down before sending: `502 CHAIN_UNAVAILABLE`, nothing is changed, and you can simply retry.
 - If confirmation is slow: `202` with `chain_status: "pending"` and the hash. Retrying **never sends twice**. `POST /chain/reconcile` (municipality or auditor) settles every pending transaction once it's mined.
 
-## Turning it on (one-time, about 5 minutes)
+## Turning it on (one-time, about 10 minutes)
 
-1. **Apply the migration** `supabase/migrations/20261120200000_p3_chain_mode.sql` (SQL editor, or `supabase db push`).
-2. **Apply the deployment data** in the SQL editor:
-   - `supabase/deployments/cp001_fuji_wallet.sql` (already applied by P2)
-   - `supabase/deployments/demo_supplier_wallets.sql`
-   - `supabase/deployments/cp001_fuji_ledger.sql`: generate it first, from `contracts/`:
-     ```bash
-     npm run export-ledger:fuji
-     ```
-     This reads CP001's real setup transactions (created, funded R2,000,000.00, M1 registered) from Fuji.
-3. **Set the Edge Function secrets** (never in the frontend):
-   ```bash
-   supabase secrets set DEPLOYER_PRIVATE_KEY=0x… FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+> ⚠️ **Order matters: database first, then the function, then the switch.** The updated `civicproof-api` calls a database function created by the migration. If the function is deployed first, the public dashboard (`GET /projects`) fails until the migration is applied.
+
+| Step | Who | Where |
+| --- | --- | --- |
+| 1–2 | P2 | Supabase **SQL Editor** |
+| 3 | **P3 only**: the key never leaves P3 | Supabase dashboard → **Edge Functions → Secrets** |
+| 4–6 | P2 | Terminal, then SQL Editor |
+
+1. **Apply the migration** in the **SQL Editor**: open `supabase/migrations/20261120200000_p3_chain_mode.sql`, paste all of it, then Run. It's safe to run once.
+   > Don't use `supabase db push` here: the earlier migrations were applied by hand, so `db push` may try to run them again.
+2. **Apply the deployment data** in the SQL Editor, in this order:
+   1. `supabase/deployments/cp001_fuji_wallet.sql` (already applied by P2; safe to re-run)
+   2. `supabase/deployments/demo_supplier_wallets.sql`
+   3. `supabase/deployments/cp001_fuji_ledger.sql` (CP001's real setup transactions on Fuji: created, funded R2,000,000.00, M1 registered)
+
+   **Check** (expect `4 | 3 | 3 | simulated`):
+   ```sql
+   select (select count(*) from pg_proc where proname like 'cp_chain%') as chain_functions,
+          (select count(*) from public.suppliers where wallet_address is not null) as supplier_wallets,
+          (select count(*) from public.transactions where mode = 'fuji') as fuji_ledger_rows,
+          (select wallet_mode from private.runtime_config) as mode;
    ```
-   This must be the key that deployed the contracts (it holds the contract roles).
-4. **Deploy the function:** `supabase functions deploy civicproof-api`
-5. **Switch the mode** (SQL editor):
+3. **Add the Edge Function secrets** (P3): dashboard → **Edge Functions → Secrets** → add:
+   - `DEPLOYER_PRIVATE_KEY`: the key that deployed the contracts (it holds the contract roles). Type it straight into the dashboard; never paste it into chat, git or a terminal command.
+   - `FUJI_RPC_URL`: `https://api.avax-test.network/ext/bc/C/rpc`
+4. **Deploy the function** from the repo root:
+   ```bash
+   npx supabase functions deploy civicproof-api --project-ref crshjvjrgnnypxbpjmob
+   ```
+   If it asks for Docker, add `--use-api`.
+5. **Check it's alive:** `https://crshjvjrgnnypxbpjmob.supabase.co/functions/v1/civicproof-api/health` should return `"status":"ok"`, and `…/civicproof-api/projects` should still list CP001.
+6. **Flip the switch** (SQL Editor):
    ```sql
    update private.runtime_config set wallet_mode = 'fuji';
    ```
+   **First real test:** submit, analyse, approve and execute invoice #1 (8 × R14,800.00) in the app. CP001's wallet on Snowtrace should drop to **R1,881,600.00**: https://testnet.snowtrace.io/address/0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D
+
+To regenerate the ledger file (only needed for a new deployment), run this from `contracts/` with the funding transaction hash that `setup:demo` printed:
+
+```bash
+NEAR_TX=<fundProject tx hash> npm run export-ledger:fuji
+```
 
 **Back to simulated** at any time (for example if Fuji misbehaves during the demo):
 
