@@ -480,11 +480,16 @@ function confirmDelivery(id: string, body: unknown): MockResult {
   if (denied) return denied
   if (!milestones.some((m) => m.id === id)) return fail(400, 'VALIDATION', 'Invalid fields or linked record.')
   const note = (body as { note?: unknown } | undefined)?.note
+  const answer = (body as { answer?: Verification['answer'] } | undefined)?.answer ?? null
+  if (answer !== null && !['yes', 'no', 'not_sure'].includes(answer)) {
+    return fail(400, 'VALIDATION', 'Answer must be yes, no or not_sure.')
+  }
   const row: Verification = {
     id: uuid(),
     milestone_id: id,
     actor_id: currentUser()!.id,
     kind: 'community',
+    answer,
     note: typeof note === 'string' ? note : '',
     created_at: now(),
   }

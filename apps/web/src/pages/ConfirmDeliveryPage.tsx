@@ -4,7 +4,6 @@ import { Link, useParams } from 'react-router-dom'
 import { RequireRole } from '../components/RequireRole'
 import { api, ApiError } from '../lib/api'
 import { useMilestone } from '../lib/useMilestone'
-import { ANSWER_PREFIX } from '../lib/ledger'
 import type { DeliveryAnswer, Verification } from '../types'
 
 export function ConfirmDeliveryPage() {
@@ -51,11 +50,12 @@ function ConfirmDelivery() {
   const [answer, setAnswer] = useState<DeliveryAnswer | null>(null)
   const [comment, setComment] = useState('')
 
-  // The API stores only { note } for now (answer field REQUESTED from P2), so the answer leads the note.
+  // Store the choice separately from the citizen's own comment.
   const confirm = useMutation({
     mutationFn: (a: DeliveryAnswer) =>
       api.post<Verification[]>(`/milestones/${milestoneId}/confirm`, {
-        note: [ANSWER_PREFIX[a], comment.trim()].filter(Boolean).join(' '),
+        answer: a,
+        note: comment.trim(),
       }),
   })
   const alreadyAnswered =
