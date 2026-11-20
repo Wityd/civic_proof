@@ -15,7 +15,8 @@
     "setup:demo:bsc": "hardhat run scripts/setup-demo.ts --network bscTestnet",
     "export-abi": "hardhat run scripts/export-abi.ts",
     "export-ledger:fuji": "hardhat run scripts/export-ledger.ts --network fuji",
-    "export-ledger:bsc": "hardhat run scripts/export-ledger.ts --network bscTestnet"
+    "export-ledger:bsc": "hardhat run scripts/export-ledger.ts --network bscTestnet",
+    "live:invoice1": "node scripts/live-invoice.mjs"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "5.0.0",

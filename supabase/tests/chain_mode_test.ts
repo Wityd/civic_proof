@@ -10,8 +10,9 @@ import { Contract, ContractFactory, JsonRpcProvider, Wallet, keccak256, toUtf8By
 import { ChainAdapter } from '../functions/_shared/chain.ts';
 import { chainDecide, chainExecutePayment, chainMilestone, chainReconcile, chainSubmitInvoice, type ChainDeps } from '../functions/_shared/chain_routes.ts';
 import { analyse, type AnalysisContext } from '../functions/_shared/rules.ts';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const PORT = 8551;
 const RPC = `http://127.0.0.1:${PORT}`;
 // Hardhat's public test account #0: not a secret, only valid on a local node.
@@ -95,7 +96,7 @@ async function deployContracts() {
 async function setupDatabase(receipts: { created: { hash: string; blockNumber: number }; funded: { hash: string; blockNumber: number } }) {
   db = new PGlite();
   await db.exec(`
-    create role anon; create role authenticated; create role service_role;
+    create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true),'')::uuid $$;
     create schema storage; create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text);
@@ -293,6 +294,68 @@ Deno.test({
         const rec: any = await chainReconcile(deps);
         assert(rec.results.some((r: { status: string }) => r.status === 'confirmed'), 'reconciled');
         eq(await invoiceStatus(inv.payload.id), 'paid', 'paid after reconcile');
+      });
+
+      await t.step('sender claims, pending reservations and rollback work as service_role', async () => {
+        const inv = invoice('blue', 'BB-guards', [{ description: 'tank', category: 'water_storage', reference_sku: 'TANK-10000L', quantity: 1, unit_price_cents: R(14_500) }]);
+        await submitAndAnalyse(inv);
+        const before = await rpc('cp_available', { p_project: CP001, p_mode: 'fuji' });
+        await db.exec('set role service_role');
+        try {
+          const prepared = await rpc('cp_chain_prepare', { p_actor: U.municipality, p_op: 'approve', p_ref: inv.payload.id }) as { tx: { id: string } };
+          eq(await rpc('cp_available', { p_project: CP001, p_mode: 'fuji' }), Number(before) - R(14_500), 'pending approval reserves budget');
+          const owner = crypto.randomUUID();
+          eq(await rpc('cp_chain_claim', { p_tx_id: prepared.tx.id, p_owner: owner }), true, 'first sender owns claim');
+          eq(await rpc('cp_chain_claim', { p_tx_id: prepared.tx.id, p_owner: crypto.randomUUID() }), false, 'second sender refused');
+          await expectError(rpc('cp_chain_record_hash', { p_tx_id: prepared.tx.id, p_owner: crypto.randomUUID(), p_hash: '0x' + '1'.repeat(64) }), 'INVALID_STATE');
+          await rpc('cp_chain_settle', { p_tx_id: prepared.tx.id, p_status: 'failed', p_error: 'CHAIN_UNAVAILABLE' });
+          await rpc('cp_chain_release_claim', { p_tx_id: prepared.tx.id });
+          eq(await invoiceStatus(inv.payload.id), 'analysed', 'rollback preserves invoice');
+          eq(await one('select count(*)::int as n from public.approvals where invoice_id=$1', [inv.payload.id]).then(r => r?.n), 0, 'service role removes tentative approval');
+          eq(await rpc('cp_available', { p_project: CP001, p_mode: 'fuji' }), before, 'reservation released');
+        } finally { await db.exec('reset role'); }
+      });
+
+      await t.step('hash persistence failure never broadcasts and unknown hashes remain pending', async () => {
+        const before = await nonce();
+        const result = await adapter.submitRequest(walletAddress, { invoiceId: crypto.randomUUID(), supplier: supplierAddr.blue, amountCents: 100, documentSha256: 'a'.repeat(64) }, () => Promise.reject(new Error('database connection lost')));
+        eq(result.status, 'pending', 'uncertain persistence stays pending');
+        eq(await nonce(), before, 'nothing broadcast');
+        eq((await adapter.receipt('0x' + 'f'.repeat(64))).status, 'pending', 'missing receipt does not prove failure');
+      });
+
+      await t.step('public project milestones and authorised approval names match P1 contract', async () => {
+        const d = await dashboard();
+        eq(d.milestones.length, 1, 'one milestone');
+        eq(d.milestones[0].id, M1, 'correct project milestone');
+        eq(d.milestones[0].status, 'verified', 'delivery state');
+        eq(Object.keys(d.milestones[0]).sort().join(','), 'code,description,id,status,title,verified_at', 'only public milestone fields');
+        await db.exec('set role service_role');
+        try {
+          for (const actor of [U.municipality,U.auditor,U.supplier]) {
+            const approvals = await rpc('cp_invoice_approvals',{p_actor:actor,p_invoice_id:inv1.payload.id}) as {actor_display_name:string}[];
+            eq(approvals[0].actor_display_name, 'municipality', 'approver name');
+          }
+          await expectError(rpc('cp_invoice_approvals',{p_actor:U.citizen,p_invoice_id:inv1.payload.id}),'FORBIDDEN');
+        } finally { await db.exec('reset role'); }
+        const privilege = await one("select has_function_privilege('authenticated','public.cp_invoice_approvals(uuid,uuid)','execute') as allowed");
+        eq(privilege?.allowed, false, 'browser cannot impersonate an actor via RPC');
+      });
+
+      await t.step('delivery answers are constrained community evidence and never verify a milestone', async () => {
+        for (const answer of ['yes','no','not_sure',null]) {
+          const milestone = crypto.randomUUID();
+          await db.query("insert into public.milestones(id,project_id,code,title) values($1,$2,$3,'Answer test')",[milestone,CP001,`answer-${answer}`]);
+          await db.query("insert into public.verifications(milestone_id,actor_id,kind,answer,note) values($1,$2,'community',$3,'Evidence only')",[milestone,U.citizen,answer]);
+          eq((await one('select answer from public.verifications where milestone_id=$1',[milestone]))?.answer,answer,'answer preserved');
+          eq((await one('select status from public.milestones where id=$1',[milestone]))?.status,'pending','not officially verified');
+        }
+        for (const [kind,answer] of [['community','maybe'],['official','yes']]) {
+          let rejected=false;
+          try { await db.query('insert into public.verifications(milestone_id,actor_id,kind,answer) values($1,$2,$3,$4)',[M1,U.citizen,kind,answer]); }
+          catch {rejected=true;}
+          assert(rejected,'invalid answer or official answer refused');
+        }
       });
 
       await t.step('simulated mode is untouched: chain-mode invoices cannot be decided there', async () => {
