@@ -14,7 +14,8 @@ Browser -> Supabase Auth                   login/session
 Browser -> Supabase Data API + RLS         permitted reads and ordinary writes
 Browser -> civicproof-api Edge Function    sensitive actions and file validation
 Edge Function -> service-only SQL RPC      atomic workflow and financial changes
-Edge Function -> P3/P4 adapters            live chain and LLM integration (pending)
+Edge Function -> P3 chain adapter          Fuji / BNB signing and receipt checks
+Edge Function -> P4 adapter                PDF/LLM integration (pending)
 ```
 
 The browser uses a publishable/anon key and the user's JWT. The service-role key
@@ -58,11 +59,12 @@ Responses use `{data: ...}` or `{error: {code, message}}`.
 | `POST /invoices` | Supplier PDF + manual JSON, byte validation, SHA-256 and atomic invoice/items/ledger insertion |
 | `POST /invoices/:id/analyse` | Municipality runs deterministic rules on submitted data |
 | `POST /invoices/:id/approve`, `/hold`, `/reject` | Atomic decisions, reasons, state changes and fund reservations |
-| `POST /payments/:invoiceId/execute` | Municipality; atomic, idempotent simulated release |
+| `POST /payments/:invoiceId/execute` | Municipality; idempotent release in the active ledger mode |
 | `POST /milestones/:id/register`, `/verify` | Municipality registers; municipality/auditor officially verifies |
 | `POST /milestones/:id/evidence`, `/confirm` | Validated image evidence; citizen community confirmation |
 | `POST /projects/:id/concerns`, `/concerns/:id/respond` | Citizen raises concern; municipality responds |
-| `POST /chain/*` | Staff only; fails with `CHAIN_NOT_READY`, accepts no chain updates until P3 integration |
+| `POST /chain/reconcile` | Municipality/auditor; checks stored hashes against chain receipts and settles confirmed results |
+| `GET /chain/status?mode=fuji&project_id=UUID` | Municipality/auditor; read-only signer, roles, gas and wallet readiness |
 
 Invoice multipart fields are `file` and `invoice` (JSON). Evidence fields are
 `file` and optional `caption`. Requests and files are size-limited; invoice PDFs
@@ -86,15 +88,16 @@ is global per invoice across `simulated`, `fuji` and `bsc`.
 
 ## Remaining integrations
 
-The deployed working mode is **simulated**. Live modes and per-chain
-`project_wallets` remain supported by the schema and shared types. P3 must supply
-the Edge-compatible signing/receipt adapter and real deployment configuration.
-Live financial commands currently fail closed; a submitted hash or webhook alone
-cannot change financial state. No real wallet addresses or receipts are invented.
+The deployed mode is **fuji** for CP001. P3's Edge-compatible adapter is integrated;
+the three setup receipts were checked against chain 43113 and imported. Signing
+secrets are installed in Supabase. Read-only preflight matched CP001, both required
+contract roles, gas and the R2,000,000 test-token balance. See [CHAIN-MODE.md](CHAIN-MODE.md).
+BNB is supported by the adapter but needs its own wallet and deployment configuration.
+A caller-supplied hash or webhook alone cannot change financial state.
 
 P4 can integrate PDF extraction and LLM explanations. Current `mode: rules`
 analysis checks the manually submitted line items; it does not claim to extract
-PDF text. No external AI keys or chain signing keys have been installed. A
+PDF text. No external AI keys have been installed. A
 destructive demo-reset endpoint is not exposed.
 
 ## Files and verification

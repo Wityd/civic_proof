@@ -136,7 +136,8 @@ Deno.test({ name: 'live Supabase-first access controls and complete simulated mo
     const reserve = await Promise.all([hugeA, hugeB].map((i) => fetch(`${base}/invoices/${i.id}/approve`, { method: 'POST', headers: { ...headers(sessions.municipality.token), 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Temporary concurrency check' }) })));
     const statuses = reserve.map((r) => r.status).sort(); for (const r of reserve) await r.arrayBuffer(); assert(statuses[0] === 200 && statuses[1] === 409, 'Concurrent approvals cannot overspend available funds');
     await request('/chain/reconcile', 'POST', {}, 'citizen', 403);
-    await request('/chain/reconcile', 'POST', {}, 'municipality', 503);
-    console.log('PASS concurrent budget reservation and unconfigured-chain fail-closed boundary');
+    const reconciliation = await request('/chain/reconcile', 'POST', {}, 'municipality');
+    assert(reconciliation.checked === 0, 'No chain transactions need reconciliation during simulated checks');
+    console.log('PASS concurrent budget reservation and role-protected chain reconciliation');
   } finally { await cleanup(); }
 } });

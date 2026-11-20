@@ -8,6 +8,8 @@ try {
   $env:TEST_SUPABASE_URL='https://crshjvjrgnnypxbpjmob.supabase.co'
   $env:TEST_SUPABASE_ANON_KEY=($keys|Where-Object name -eq 'anon').api_key
   $env:TEST_SUPABASE_SERVICE_KEY=($keys|Where-Object name -eq 'service_role').api_key
+  $mode=Invoke-RestMethod -Method Post -Uri "$($env:TEST_SUPABASE_URL)/rest/v1/rpc/cp_wallet_mode" -Headers @{apikey=$env:TEST_SUPABASE_SERVICE_KEY;Authorization="Bearer $($env:TEST_SUPABASE_SERVICE_KEY)"} -ContentType 'application/json' -Body '{}'
+  if($mode -ne 'simulated'){throw 'The live runtime must be simulated before running this mutating test suite. Use Test-CivicProofChainReadiness.ps1 for read-only Fuji checks.'}
   $env:TEST_SUPABASE_ACCESS_TOKEN=$h.Authorization.Substring(7)
   $accounts=Import-Clixml -LiteralPath (Join-Path $repoRoot '.local/demo-credentials.xml')
   $data=@($accounts|ForEach-Object{@{role=$_.Role;email=$_.Login.UserName;password=$_.Login.GetNetworkCredential().Password}})

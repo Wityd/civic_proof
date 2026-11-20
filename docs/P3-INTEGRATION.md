@@ -11,7 +11,7 @@ when this update was prepared; P2 did not merge it again.
 The primary key `(project_id, mode)` permits one wallet per chain per project.
 Wallet addresses must be valid nonzero EVM addresses. The same address cannot be
 assigned to two projects on the same chain, including with different letter case.
-RLS is enabled; access is backend-only like the other application tables.
+RLS is enabled; wallet mappings are publicly readable and writable only by the backend.
 
 Wallet-row modes are `fuji` and `bsc`. The simulated ledger has no invented chain
 address. `transactions.mode` supports `simulated | fuji | bsc`, and operations
@@ -31,9 +31,10 @@ both 200000000 cents. Its token getter returned
 not officially Verified (2). The repeatable mapping SQL is
 `supabase/deployments/cp001_fuji_wallet.sql`.
 
-No chain transaction receipts have been fabricated. The runtime remains
-simulated; its opening ledger is unchanged. P3 still needs to supply the factory
-address, confirmed funding/registration receipts and live adapter configuration.
+The three Fuji setup receipts were verified and imported from
+`supabase/deployments/cp001_fuji_ledger.sql`. P3's adapter is integrated and the
+runtime is now Fuji. The factory is `0x6E243F5e663DB56f8d4e5e3B32E24BAf3779c791`.
+See [CHAIN-MODE.md](CHAIN-MODE.md) for deployment and recovery details.
 
 ## Demo IDs for P3
 
@@ -50,7 +51,8 @@ helper hashes the UTF-8 UUID string with keccak256.
 
 ## Configuration and adapter calls
 
-- `WALLET_MODE=simulated|fuji|bsc`: exactly one active mode per API instance.
+- `private.runtime_config.wallet_mode`: `simulated|fuji|bsc`, one active mode.
+  The deployed Edge Function reads this database value; no WALLET_MODE secret is needed.
 - `FACTORY_ADDRESS` replaces `WALLET_CONTRACT_ADDRESS`. It is the factory for the
   selected chain, separate from each project's wallet address.
 - `DEMOZAR_ADDRESS` must also belong to the selected chain.
@@ -62,8 +64,8 @@ helper hashes the UTF-8 UUID string with keccak256.
 `packages/shared/types.ts` exports `LedgerMode`, `TxResult`,
 `ProjectWalletRecord` and the updated `WalletService` interface, including
 `registerMilestone(milestoneId)`. The API now runs in Supabase Edge Functions;
-the simulated flow is implemented. P3's live adapter needs to be compatible with
-the Edge/Deno runtime. Express is no longer part of the architecture.
+both simulated and live chain flows are implemented in Edge/Deno. Express is no
+longer part of the architecture.
 
 The adapter resolves the project from the invoice or milestone record and looks
 up the wallet by `(project_id, active mode)`. Create through the factory, resolve

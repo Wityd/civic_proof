@@ -84,7 +84,11 @@ For an authorised invoice file use
 `supabase.storage.from('invoices').createSignedUrl(invoice.document_path, 60)`.
 Ownership/staff RLS applies. Buckets stay private; browser uploads are not granted.
 
-Show **Simulated ledger** for the current mode and no explorer links for `sim_*`
-hashes. Live financial writes return `503 CHAIN_NOT_READY` until P3's adapter is
-configured. Rules-mode analysis uses submitted manual data; PDF/LLM extraction
-is P4's integration boundary. See [BACKEND.md](BACKEND.md) for all implemented routes.
+Read `wallet_mode` from `/me` and `mode` from project responses. The deployed
+CP001 mode is `fuji`: show **Avalanche Fuji** and the returned `explorer_url`.
+Show **Simulated ledger** without explorer links for `sim_*` hashes when simulated
+mode is selected. Chain commands can return HTTP 202 with `chain_status: pending`;
+retain the returned invoice/transaction ID and retry that action or have staff call
+`POST /chain/reconcile`. Do not submit a second invoice to retry an existing one.
+Rules-mode analysis uses submitted manual data; PDF/LLM extraction remains P4's
+integration boundary. See [BACKEND.md](BACKEND.md) for all implemented routes.
