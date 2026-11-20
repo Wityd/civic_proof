@@ -35,10 +35,7 @@ export function explorerUrl(mode: string | null, hash: string): string | null {
   return null
 }
 
-// Approvals only carry actor_id until the API adds a name (REQUESTED from P2).
+// Prefer the API field; preserve legacy/mock names and the existing fallback.
 export function approverName(a: Approval, demoUsers: DemoUser[]): string {
-  return a.actor_name ?? demoUsers.find((u) => u.id === a.actor_id)?.display_name ?? 'Municipality officer'
+  return a.actor_display_name ?? a.actor_name ?? demoUsers.find((u) => u.id === a.actor_id)?.display_name ?? 'Municipality officer'
 }
-
-// Delivery answers travel inside the confirmation note until the API has an answer field.
-export const ANSWER_PREFIX = { yes: '[yes]', no: '[no]', not_sure: '[not sure]' } as const
