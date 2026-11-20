@@ -2,32 +2,33 @@
 
 > **Follow the money. Prove the service.**
 
-CivicProof is a public-spending accountability platform built for the **BACISS 2026 hackathon**. It ring-fences a municipal project's budget in a dedicated wallet on a blockchain. An AI pipeline screens every supplier invoice before any money leaves, an authorised human decides, and every payment, hold and rejection is recorded where citizens can see it.
+CivicProof is a public-spending accountability platform built for the **BACISS 2026 hackathon** (Blockchain, AI and Cloud Innovation Startup School). It ring-fences each municipal project's budget in its own wallet contract on a blockchain. AI screens every supplier invoice before any money leaves, an authorised human decides, and every payment, hold and rejection is visible to citizens.
 
-> ⚠️ **Simulated funds only.** Every project, supplier, price and amount in this repository is fictional. **DemoZAR (dZAR)** is a labelled test token on the Avalanche Fuji **testnet**. It is not real, backed or redeemable currency.
+> ⚠️ **Simulated funds only.** Every project, supplier, price and amount in this repository is fictional. **DemoZAR (dZAR)** is a labelled test token on public **testnets** (Avalanche Fuji, BNB Smart Chain testnet). It is not real, backed or redeemable currency.
 
 ---
 
-## Table of contents
+## Contents
 
 - [The problem](#the-problem)
 - [What CivicProof does](#what-civicproof-does)
-- [The golden path (demo)](#the-golden-path-demo)
+- [The demo](#the-demo)
 - [Architecture](#architecture)
 - [Tech stack](#tech-stack)
 - [Repository layout](#repository-layout)
 - [Getting started](#getting-started)
-- [Environment variables](#environment-variables)
-- [Shared contracts](#shared-contracts)
+- [Configuration](#configuration)
+- [Operations: who can do what](#operations-who-can-do-what)
+- [Shared rules](#shared-rules)
 - [AI expenditure review](#ai-expenditure-review)
-- [Wallet and smart contract](#wallet-and-smart-contract)
-- [API reference](#api-reference)
+- [Smart contracts](#smart-contracts)
+- [Wallet service](#wallet-service)
 - [Demo data](#demo-data)
-- [Team and ownership](#team-and-ownership)
-- [Build timeline and gates](#build-timeline-and-gates)
+- [Team](#team)
+- [Build status](#build-status)
 - [Git workflow](#git-workflow)
 - [Risks and fallbacks](#risks-and-fallbacks)
-- [Scope, limitations and roadmap](#scope-limitations-and-roadmap)
+- [Scope and roadmap](#scope-and-roadmap)
 
 ---
 
@@ -41,115 +42,122 @@ Citizens can't see where the money went. Officials have no fast, consistent way 
 
 | Module | What it gives you |
 | --- | --- |
-| **Ring-fenced project wallet** | Each project's budget sits in its own smart-contract wallet. Money only leaves through an authorised, recorded release. |
-| **AI expenditure review** | Every invoice is extracted, checked against reference prices, the project's permitted purposes, the budget and the supplier registry, then explained in plain language. |
+| **Ring-fenced project wallets** | Every project gets **its own wallet contract** with its own address on the explorer. Money only leaves through an approved, recorded release. |
+| **AI expenditure review** | Each invoice is extracted, checked against reference prices, the project's permitted purposes, the budget and the supplier registry, then explained in plain language. |
 | **Human-in-the-loop approval** | **AI recommends; authorised humans decide.** Approving against an AI flag needs a written reason, which is recorded. |
 | **Public transparency dashboard** | Citizens see budget, spent, balance, every payment with its transaction hash, and every held or rejected invoice, with personal data redacted. |
-| **Delivery verification** *(extension)* | Milestones, photo evidence with duplicate detection, community confirmation and official verification. Delivery-dependent payments stay locked until the milestone is verified. |
+| **Delivery verification** | Milestones, photo evidence with duplicate detection, community confirmation and official verification. Delivery-dependent payments stay locked on-chain until the milestone is verified. |
 
 ### Core principles
 
 1. **Every disbursement passes through the project wallet.** There is no side door.
 2. **Rules decide, AI explains.** Flags come from deterministic code. The LLM extracts data and writes the explanation. We never label a supplier fraudulent on AI output alone.
-3. **The chain proves integrity, not truth.** A document hash shows that evidence hasn't been altered since it was submitted. It doesn't prove the evidence was true. That's why humans review it.
-4. **Community confirmation is evidence, not authorisation.** Citizens can confirm delivery, but only authorised officials can release money.
+3. **The chain proves integrity, not truth.** A document hash anchored on-chain proves the evidence hasn't changed since submission. It doesn't prove the evidence was true. That's why humans review it.
+4. **Community confirmation is evidence, not authorisation.** Citizens can confirm delivery, but only an authorised official can release money.
+5. **Secrets never reach the browser.** Signing keys and AI keys live only on the Supabase server side (Edge Function secrets).
 
 ---
 
-## The golden path (demo)
+## The demo
 
 One fictional project, four invoices, one money trail that never breaks:
 
 ```
-R2,000,000 project ──► 3 invoices ──► AI flags ──► human decision ──► on-chain payment ──► public dashboard
+R2,000,000 project ──► invoices ──► AI flags ──► human decision ──► on-chain payment ──► public dashboard
 ```
 
-1. **Citizen view.** Project *CP001 Kgotso Valley Water Access* shows R2,000,000.00 allocated and nothing spent yet.
-2. **Fair invoice.** 8 water tanks, no flags → approve → execute → *pending → confirmed* with a Snowtrace link.
-3. **Inflated invoice.** 20 pipes at R12,000.00 each against a R5,200.00 benchmark gives **R136,000.00 potential excess**. The supplier is also only 21 days old. **Hold**: the money stays in the wallet.
-4. **Wrong purpose.** A R785,000.00 double-cab bakkie on a water project is a `PURPOSE_MISMATCH`, so it's **rejected**, and the rejection is recorded on-chain.
-5. **Prove the service** *(if the delivery module ships)*. The installation invoice is approved, but its payment is blocked until milestone M1 is verified. A re-uploaded photo is flagged as `DUPLICATE_EVIDENCE`. After community confirmations and official verification, the payment goes through.
-6. **Close.** The balance is **R1,817,600.00**, every payment shows its hash, and held and rejected invoices are publicly visible.
+1. **Citizen view.** *CP001 Kgotso Valley Water Access* shows R2,000,000.00 allocated, nothing spent, and its own wallet address on Snowtrace.
+2. **Fair invoice.** 8 water tanks, no flags → approve → execute → *pending → confirmed* with an explorer link.
+3. **Inflated invoice.** 20 pipes at R12,000.00 against a R5,200.00 benchmark gives **R136,000.00 potential excess**, and the supplier is only 21 days old. **Hold**: the money stays in the wallet.
+4. **Wrong purpose.** A R785,000.00 double-cab bakkie on a water project → `PURPOSE_MISMATCH` → **rejected**, recorded on-chain.
+5. **Prove the service.** The installation invoice is approved, but **the contract refuses to pay** until milestone M1 is verified. A re-uploaded photo is flagged `DUPLICATE_EVIDENCE`. After community confirmations and official verification, the payment goes through.
+6. **Close.** The balance is **R1,817,600.00**, every payment has a hash, and held and rejected invoices are publicly visible.
 
 ---
 
 ## Architecture
 
-A **modular monolith** with blockchain integration: one React app, one Express API, one Supabase project and one smart contract.
+**No custom API server.** The React app talks to **Supabase** directly: Auth for sign-in, the Data API (under Row Level Security) for reads and simple writes, and one **Edge Function, `civicproof-api`**, for every sensitive action. That function verifies the caller, runs the rules, moves the money and holds the secrets, so keys never reach the browser.
 
 ```mermaid
 flowchart TB
-    subgraph web["apps/web · React + Vite"]
+    subgraph web["apps/web · React + Vite (browser)"]
         C[Citizen<br/>public dashboard]
         S[Supplier<br/>invoices + evidence]
         M[Municipality<br/>review, approve, pay]
         A[Auditor<br/>read-only review]
     end
 
-    web -->|REST + Supabase JWT| api
-
-    subgraph api["apps/api · Express — the only holder of keys"]
-        G[Auth + RBAC · zod validation · public redaction]
-        W[Workflow<br/>states, approvals,<br/>idempotent payments]
-        D[Delivery<br/>milestones, evidence,<br/>concerns, confirms]
-        AI[AIService<br/>extract · rules · explain]
-        WS[WalletService<br/>simulated or fuji]
+    subgraph supa["Supabase"]
+        AUTH[Auth<br/>4 seeded demo users]
+        DB[(Postgres<br/>tables + RLS + public views)]
+        ST[Storage, private buckets<br/>invoice PDFs, delivery photos]
+        EF[Edge Function civicproof-api<br/>role check · rules · AI · wallet<br/>holds the secrets]
     end
 
-    W --> DB[(Supabase<br/>Postgres + Storage)]
-    D --> DB
-    AI --> LLM[Gemini / OpenAI<br/>rules-only fallback]
-    WS --> CHAIN[Avalanche Fuji<br/>CivicProofWallet + DemoZAR]
+    web -->|"supabase-js<br/>reads + simple writes<br/>(RLS-protected)"| DB
+    web -->|"POST /functions/v1/civicproof-api/…<br/>money, AI, uploads"| EF
+    EF --> ST
+    EF --> AI[Gemini / OpenAI<br/>rules-only fallback]
+    EF -->|"fuji or bsc mode"| WS[packages/wallet<br/>ChainWalletService]
+    EF -->|"records + simulated ledger<br/>(atomic SQL)"| DB
+    WS --> FUJI[Avalanche Fuji<br/>CivicProofFactory → ProjectWallet per project]
+    WS --> BSC[BNB testnet<br/>same contracts]
 ```
 
-**The browser only ever talks to the API.** The frontend never touches the database or the chain directly. Switching from the simulated ledger to Fuji, or from the LLM to rules-only mode, is one environment variable and no code changes.
+| Path | Used for | Protected by |
+| --- | --- | --- |
+| **Browser → Postgres** (supabase-js) | Own profile, a supplier's own invoices, citizen concerns, community confirmations, `get_public_dashboard` | Row Level Security per role; the public dashboard RPC returns redacted data only |
+| **Browser → `civicproof-api`** (Edge Function) | Create project and milestones, submit invoice (PDF upload), analyse, approve / hold / reject, execute payment, verify milestone, upload evidence | The function verifies the caller's session and role, then uses the service-role key and secrets |
+| **Storage** | Invoice PDFs and delivery photos | Buckets are private. Files are uploaded **through** the Edge Function and read with short-lived signed URLs |
+
+Switching between the simulated ledger and a chain is **one setting** (`wallet_mode` in the server-only `private.runtime_config` table); switching the AI to rules-only is `AI_MODE`. No code changes.
 
 ### Where data lives
 
 | On-chain (authority for money) | Supabase (application data) |
 | --- | --- |
-| Project ID, allocation, wallet balance | Project descriptions, users and roles |
-| Payment amount, supplier wallet address | Supplier details, invoices, line items |
-| Invoice document hash, approval events | AI findings, reference prices, documents |
-| Transaction history and status | Delivery photos, milestones, verifications, concerns |
-
-Confirmed chain events are synced to the database, and balances are reconciled before redacted public records are shown.
+| Each project's wallet, allocation and balance | Project descriptions, users and roles, `project_wallets` (address per chain) |
+| Payment amount and supplier address | Supplier details, invoices, line items |
+| Invoice document hash, approvals, rejections | AI findings, reference prices, documents |
+| Milestone registration and verification | Delivery photos, community confirmations, concerns |
+| Every release, exactly once | The `transactions` ledger (synced from chain results) |
 
 ---
 
 ## Tech stack
 
-| Layer | Choice | Notes |
-| --- | --- | --- |
-| Frontend | React + Vite + Tailwind, React Router, TanStack Query | Recharts for the dashboard; shadcn/ui optional |
-| Backend | Node 20 + Express + TypeScript, zod | Shares types with the web app through `packages/shared` |
-| Database & files | Supabase Postgres + Storage (`invoices`, `evidence` buckets) | RLS on, no policies: only the API's service-role key reads or writes |
-| Auth | Supabase Auth, 4 seeded demo users | API verifies the JWT, then reads `role` from `users` |
-| AI | Gemini Flash-tier (JSON output, PDF input); OpenAI as backup | Wrapped in `AIService`; `AI_MODE=llm\|rules` |
-| Chain | Solidity 0.8.24 + OpenZeppelin 5, Hardhat, ethers v6 | Avalanche Fuji C-Chain, chain ID **43113** |
-| Hosting | Web on Vercel, API on Northflank (Render as backup) | `main` auto-deploys |
+| Layer | Choice |
+| --- | --- |
+| Frontend | React + Vite + TypeScript, Tailwind, React Router, TanStack Query, `@supabase/supabase-js` |
+| Backend | **Supabase**: Auth, Postgres with RLS and RPCs, private Storage, and one **Edge Function** router (`civicproof-api`, Deno) for privileged operations |
+| AI | Gemini Flash-tier (JSON output, PDF input), OpenAI as backup, `AI_MODE=rules` fallback |
+| Contracts | Solidity 0.8.24, OpenZeppelin 5, Hardhat 2, ethers v6 |
+| Chains | **Avalanche Fuji** (chain 43113) and **BNB Smart Chain testnet** (chain 97): same contracts, one active at a time |
+| Wallet | `packages/wallet`: one `WalletService` interface with simulated / Fuji / BNB implementations |
+| Hosting | Web on Vercel; everything else on Supabase |
 
 ---
 
 ## Repository layout
 
-One repo, npm workspaces. **Owning a folder means you merge into it; anyone else opens a PR.**
+**Owning a folder means you merge into it; anyone else opens a PR.**
 
 ```
 civic_proof/
 ├── apps/
-│   ├── web/                      P1  React app (pages/delivery/* → P5, components/ai/* → P4)
-│   └── api/                      P2  Express API
-│       └── src/
-│           ├── services/ai/      P4  extract.ts, rules.ts, explain.ts
-│           ├── services/wallet/  P3  WalletService.ts, simulated.ts, fuji.ts
-│           └── routes/delivery.ts P5
-├── contracts/                    P3  Hardhat project, CivicProof.sol
+│   └── web/                  P1  React app (pages/delivery/* → P5, components/ai/* → P4)
+├── supabase/                 P2  schema.sql, seed.sql, migrations/, verify.sql, tests/
+│   └── functions/
+│       ├── civicproof-api/   P2  the Edge Function router (wallet adapter with P3, AI with P4)
+│       └── _shared/          P2  shared rules engine
+├── contracts/                P3  Hardhat: DemoZAR, CivicProofFactory, ProjectWallet + tests + deploy scripts
+│   └── deployments/          P3  public addresses per chain (fuji.json, bscTestnet.json)
 ├── packages/
-│   └── shared/                   P2  types.ts, enums.ts, abi/ (P3 drops ABIs here)
-├── supabase/                     P2  schema.sql, seed.sql (P5 writes the data)
-└── docs/
-    └── demo-script.md            P5
+│   ├── wallet/               P3  WalletService: simulated (SQL) + chain (Fuji/BNB), shared test suite
+│   └── shared/               P2  shared types; abi/ is written by P3's export-abi script
+├── docs/                     P2  backend reference, Supabase setup, P2/P3 integration
+└── scripts/                  P2  Supabase setup and verification helpers
 ```
 
 ---
@@ -158,101 +166,124 @@ civic_proof/
 
 ### Prerequisites
 
-- Node.js 20+ and npm 10+
-- A Supabase project (URL, anon key, service-role key)
-- A Gemini API key (OpenAI optional, as backup)
-- *For on-chain mode:* a deployer wallet funded with Fuji test AVAX
+- Node.js 20 or 22 (LTS). Hardhat 2 is not tested on newer versions.
+- Access to the team's Supabase project (URL and anon key from the team channel)
+- For contracts: a **testnet-only** deployer key with test AVAX (and test BNB for BNB testnet)
 
-### 1. Install
-
-```bash
-git clone https://github.com/Wityd/civic_proof.git
-```
+### Frontend (P1)
 
 ```bash
-cd civic_proof && npm install
+cd apps/web && npm ci && npm run dev
 ```
 
-### 2. Configure
+With `VITE_USE_MOCKS=true` the app runs on local mock data and needs no Supabase at all.
+
+### Supabase (P2)
+
+The team's Supabase project is already provisioned and verified by P2. To rebuild it: apply `supabase/schema.sql`, then the files in `supabase/migrations/`, then `supabase/seed.sql`, and deploy the `civicproof-api` Edge Function. `supabase/verify.sql` checks the result. Step-by-step instructions are in [`docs/SUPABASE-SETUP.md`](docs/SUPABASE-SETUP.md), and the frontend integration guide is [`docs/FRONTEND-CONTRACT.md`](docs/FRONTEND-CONTRACT.md).
+
+### Contracts (P3)
 
 ```bash
-cp .env.example .env
+cd contracts && npm ci && npm test
 ```
 
-Fill in the keys (see [Environment variables](#environment-variables)). **Never commit `.env`.** Team keys are shared in the private team channel only.
-
-### 3. Database
-
-Run `supabase/schema.sql`, then `supabase/seed.sql`, in the Supabase SQL editor. Create the four demo users (citizen, supplier, municipality, auditor) in Supabase Auth.
-
-### 4. Run locally
+That runs 43 tests. Deploying (needs `contracts/.env`, see [Configuration](#configuration)):
 
 ```bash
-npm run dev
+npm run deploy:fuji && npm run setup:demo:fuji && npm run export-abi
 ```
 
-This starts the web app and the API together. To work on the frontend before the API is ready, set `VITE_USE_MOCKS=true` and the app will serve `mocks/*.json`.
+Replace `fuji` with `bsc` for BNB testnet. `setup:demo` creates CP001's wallet, funds it with R2,000,000.00 dZAR and registers M1. It is safe to re-run.
 
-### 5. Contracts *(P3)*
+### Wallet service (P3)
 
 ```bash
-cd contracts && npx hardhat test
+cd packages/wallet && npm ci && npm test
 ```
 
-```bash
-npx hardhat run scripts/deploy.ts --network fuji
-```
-
-The deploy script deploys `DemoZAR` and `CivicProofWallet`, mints R2,000,000.00 dZAR, creates CP001 and funds it. Then copy both addresses into `.env` and the ABIs into `packages/shared/abi/`.
-
-### 6. Reset the demo
-
-```bash
-npm run demo:reset
-```
-
-This wipes and reseeds the demo data. Run it before every rehearsal.
+That runs 34 tests. The chain suite needs the contracts compiled first (`npm test` in `contracts/`).
 
 ---
 
-## Environment variables
+## Configuration
 
-```bash
-# ── api ───────────────────────────────────────────────
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-GEMINI_API_KEY=
-OPENAI_API_KEY=
-AI_MODE=llm                     # llm | rules
-WALLET_MODE=simulated           # simulated | fuji
-FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-DEPLOYER_PRIVATE_KEY=
-DEMOZAR_ADDRESS=
-WALLET_CONTRACT_ADDRESS=
-DEMO_RESET_KEY=
+> 🔐 **Never commit `.env` files or keys.** Only `.env.example` templates are committed. Share real values privately.
 
-# ── web ───────────────────────────────────────────────
-VITE_API_URL=
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+**Frontend: `apps/web/.env`** (public values only; these ship to the browser)
+
+```dotenv
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=          # publishable/anon key only
+VITE_API_URL=https://<project>.supabase.co/functions/v1/civicproof-api
 VITE_USE_MOCKS=true
 ```
 
-> 🔐 **Keys stay server-side.** Only `VITE_*` variables reach the browser, and none of them are secrets.
+`civicproof-api` keeps the same route paths as the original API plan (`/invoices/:id/approve`, `/payments/:id/execute`, …), so the frontend calls it like a REST API, adding the signed-in user's session token.
+
+**Edge Function secrets** (set with `supabase secrets set`, never in the frontend)
+
+```dotenv
+# Supabase injects SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY automatically
+GEMINI_API_KEY=
+OPENAI_API_KEY=
+AI_MODE=llm                  # llm | rules
+DEPLOYER_PRIVATE_KEY=        # testnet-only; holds the contract roles
+FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+BSC_TESTNET_RPC_URL=https://data-seed-prebsc-1-s1.bnbchain.org:8545
+DEMO_RESET_KEY=
+```
+
+Contract addresses come from `packages/shared/abi/addresses.json`, written by `npm run export-abi`. `FACTORY_ADDRESS` and `DEMOZAR_ADDRESS` override them for the selected chain.
+
+**Contracts: `contracts/.env`** (copy from `contracts/.env.example`)
+
+```dotenv
+DEPLOYER_PRIVATE_KEY=0x…     # 0x + 64 hex characters, no spaces, no quotes
+ETHERSCAN_API_KEY=           # needed for BscScan verification; Snowtrace accepts any value
+PROJECT_UUID=10000000-0000-4000-8000-000000000001
+MILESTONE_M1_UUID=30000000-0000-4000-8000-000000000001
+PROJECT_ALLOCATION_CENTS=200000000
+```
 
 ---
 
-## Shared contracts
+## Operations: who can do what
 
-These agreements let five people build in parallel. They were frozen at **T+1:00**, and any change must be approved by P2 and announced to the team.
+The browser never moves money itself. Simple, low-risk writes go straight to Postgres under RLS. Everything that touches the wallet, the AI, files or a secret goes through `civicproof-api`, which checks the caller's role first. The routes below are relative to `/functions/v1/civicproof-api`.
+
+| Operation | Who | How | Wallet call |
+| --- | --- | --- | --- |
+| View projects, balances, ledger, held/rejected invoices | Anyone | `rpc('get_public_dashboard')` or `GET /projects…` (redacted) | `getBalance` (synced) |
+| Create project | Municipality | `POST /projects` | `createProject` → `fundProject` |
+| Create and register milestone | Municipality | `POST /projects/:id/milestones`, `POST /milestones/:id/register` | `registerMilestone` |
+| Submit invoice (PDF + line items) | Supplier | `POST /invoices` (multipart; server checks the file and computes SHA-256) | `submitPaymentRequest` |
+| View own invoices | Supplier | Postgres: RLS (own rows) | n/a |
+| Run AI analysis | Municipality | `POST /invoices/:id/analyse` | n/a |
+| Approve (reason required if flagged; not the submitter) | Municipality | `POST /invoices/:id/approve` | `approvePayment` |
+| Hold (reason required) | Municipality | `POST /invoices/:id/hold` | **none**: hold is off-chain |
+| Reject (reason required) | Municipality | `POST /invoices/:id/reject` | `rejectPayment` |
+| Execute payment (idempotent) | Municipality | `POST /payments/:invoiceId/execute` | `releasePayment` |
+| Upload delivery evidence | Supplier, citizen | `POST /milestones/:id/evidence` (duplicate-photo hash check) | n/a |
+| Community confirmation | Citizen | Postgres: RLS insert | n/a (evidence, not authorisation) |
+| Official verification | Municipality, auditor | `POST /milestones/:id/verify` | `verifyMilestone` |
+| Raise concern | Citizen | Postgres: RLS insert, or `POST /projects/:id/concerns` | n/a |
+| Respond to a concern | Municipality | `POST /concerns/:id/respond` | n/a |
+| Review everything read-only | Auditor | Postgres: RLS read policies | n/a |
+
+> The full, current route list is in [`docs/BACKEND.md`](docs/BACKEND.md) (owned by P2).
+
+---
+
+## Shared rules
 
 ### Conventions
 
-- **Money is integer cents everywhere.** Use `bigint` in the DB and fields ending in `_cents` in JSON. On-chain, dZAR has 2 decimals, so 1 token unit = 1 cent. Never use floats for money.
-- **IDs are UUIDs.** Human-readable codes look like `CP001`. On-chain keys are `keccak256(uuid)`.
-- **Response envelope:** `{ "data": ... }` or `{ "error": { "code", "message" } }`. The API uses status codes 400, 401, 403, 404 and 409 (`INVALID_STATE`, `ALREADY_PAID`).
-- **Public endpoints never return** supplier contact details, user emails or raw AI prompts.
-- **Invoice numbers are deliberately not unique** in the DB, so the rules engine can flag duplicates.
+- **Money is integer cents everywhere:** `bigint` in Postgres, `bigint` in TypeScript, fields ending `_cents` in JSON. On-chain, dZAR has 2 decimals, so 1 token unit = 1 cent. Never use floats for money.
+- **IDs are UUIDs.** On-chain ids are `keccak256(utf8(uuid))`, so the same UUID gives the same id on every chain.
+- **Document hashes** are SHA-256, 64 lowercase hex characters, computed on the server.
+- **Public reads never return** supplier contact details, user emails or raw AI prompts.
+- **Invoice numbers are deliberately not unique** in the database, so the rules engine can flag duplicates.
 
 ### Invoice state machine
 
@@ -273,18 +304,7 @@ stateDiagram-v2
     rejected --> [*]
 ```
 
-Any other transition returns `409 INVALID_STATE`. A user can't approve an invoice they submitted.
-
-### When the chain is touched
-
-| App action | Contract call |
-| --- | --- |
-| Submit invoice | `submitPaymentRequest` (anchors the document hash immediately) |
-| Approve | `approvePayment` |
-| Reject | `rejectPayment` |
-| Hold | *no chain call* |
-| Execute payment | `releasePayment` |
-| Official milestone verification | `verifyMilestone` |
+Any other transition is refused. A user can't approve an invoice they submitted. A payment is only marked `paid` after the wallet confirms it; a timeout stays `payment_pending` and is reconciled later.
 
 ---
 
@@ -292,20 +312,18 @@ Any other transition returns `409 INVALID_STATE`. A user can't approve an invoic
 
 ```
 Upload ──► Extract ──► Retrieve ──► Validate ──► Assess ──► Human review
- PDF /      LLM →       reference    rules.ts     LLM writes  approve /
+ PDF /      LLM →       reference    rules        LLM writes  approve /
  manual     JSON        prices,      (flags)      2–4 plain   hold /
                         registry                  sentences   reject
 ```
 
-- **Extract:** the LLM returns zod-validated `InvoiceExtraction` JSON. The reference catalogue is included in the prompt so the model can pick a `reference_sku` for each line.
-- **Validate:** `rules.ts` raises every flag. This is deterministic, repeatable and testable.
+- **Extract:** the LLM returns validated JSON. The reference catalogue is included in the prompt so it can pick a `reference_sku` for each line.
+- **Validate:** deterministic rules raise every flag. They are repeatable and testable.
 - **Explain:** the LLM summarises the rule output only and adds **no new numbers**.
 - **Cached by document SHA-256**, so the demo gives the same answer every time.
-- **`AI_MODE=rules`** is a full fallback that uses template explanations and needs no LLM.
+- **`AI_MODE=rules`** is a full fallback with template explanations and no LLM.
 
-### Flag codes
-
-| Code | Severity | Fires when |
+| Flag | Severity | Fires when |
 | --- | --- | --- |
 | `PURPOSE_MISMATCH` | high | A line's category isn't in the project's `permitted_categories` |
 | `PRICE_ABOVE_BENCHMARK` | high | Unit price is more than **15%** above the reference price |
@@ -316,157 +334,80 @@ Upload ──► Extract ──► Retrieve ──► Validate ──► Assess 
 | `NO_BENCHMARK` | info | No reference price matched a line |
 | `DUPLICATE_EVIDENCE` | high | A delivery photo's SHA-256 matches earlier evidence |
 
-**Recommendation:** any `PURPOSE_MISMATCH` → `REJECT`. Any other high or medium flag → `HOLD_FOR_REVIEW`. Otherwise → `APPROVE`. Approving against a flag requires a written reason and sets `overrode_ai = true`.
-
-<details>
-<summary>Example <code>POST /invoices/:id/analyse</code> response (inflated pipe invoice)</summary>
-
-```json
-{
-  "extraction": {
-    "supplier_name": "Pipeworks Direct CC",
-    "registration_no": "2026/771204/23",
-    "invoice_number": "PD-0147",
-    "invoice_date": "2026-11-18",
-    "line_items": [
-      {
-        "description": "250mm HDPE pipe 12m",
-        "category": "pipes",
-        "reference_sku": "PIPE-HDPE-250-12",
-        "quantity": 20,
-        "unit_price_cents": 1200000,
-        "line_total_cents": 24000000
-      }
-    ],
-    "total_cents": 24000000,
-    "confidence": 0.93
-  },
-  "checks": [
-    { "code": "PRICE_ABOVE_BENCHMARK", "severity": "high", "line": 0,
-      "detail": "R12,000.00 per unit vs benchmark R5,200.00 (+131%)" },
-    { "code": "SUPPLIER_REVIEW_REQUIRED", "severity": "medium",
-      "detail": "Supplier registered 21 days before invoice date" }
-  ],
-  "flags": ["PRICE_ABOVE_BENCHMARK", "SUPPLIER_REVIEW_REQUIRED"],
-  "benchmarks": [
-    { "line": 0, "sku": "PIPE-HDPE-250-12",
-      "benchmark_unit_cents": 520000, "invoice_unit_cents": 1200000,
-      "benchmark_total_cents": 10400000, "excess_cents": 13600000,
-      "source": "Seeded fictional demo data" }
-  ],
-  "potential_excess_cents": 13600000,
-  "recommendation": "HOLD_FOR_REVIEW",
-  "explanation": "Plain-language summary written by the LLM from the checks above only.",
-  "mode": "llm"
-}
-```
-
-</details>
+**Recommendation:** any `PURPOSE_MISMATCH` → `REJECT`. Any other high or medium flag → `HOLD_FOR_REVIEW`. Otherwise → `APPROVE`. Approving against a flag requires a written reason and records `overrode_ai = true`.
 
 ---
 
-## Wallet and smart contract
+## Smart contracts
 
-`contracts/CivicProof.sol` contains two contracts:
+`contracts/contracts/` holds three contracts:
 
-- **`DemoZAR`**: a clearly labelled ERC-20 test token with 2 decimals.
-- **`CivicProofWallet`**: ring-fences each project's funds, with role-based access (`MUNICIPALITY`, `APPROVER`).
+| Contract | Deployed | Purpose |
+| --- | --- | --- |
+| **`DemoZAR`** | once per chain | A clearly labelled ERC-20 **test** token with 2 decimals. Only the deployer can mint. |
+| **`CivicProofFactory`** | once per chain | `createProject(projectId, allocation)` deploys a new `ProjectWallet` and keeps the public list of projectId → wallet address |
+| **`ProjectWallet`** | **one per project** | Holds one project's dZAR and enforces every payment rule |
+
+**`ProjectWallet` functions**
 
 | Function | Role | Guard |
 | --- | --- | --- |
-| `createProject(projectId, allocated)` | MUNICIPALITY | Not already created; allocation > 0 |
-| `fundProject(projectId, amount)` | MUNICIPALITY | Can't fund beyond the allocation; caller approves dZAR first |
-| `submitPaymentRequest(requestId, projectId, supplier, amount, invoiceHash, milestoneId)` | MUNICIPALITY | One request per invoice; `milestoneId = 0x0` means not delivery-dependent |
+| `fundProject(amount)` | MUNICIPALITY | Never beyond the allocation; tokens sent directly to the address don't count |
+| `registerMilestone(milestoneId)` | MUNICIPALITY | Must happen before an invoice can depend on the milestone |
+| `submitPaymentRequest(requestId, supplier, amount, invoiceHash, milestoneId)` | MUNICIPALITY | One request per invoice; anchors the document hash; a linked milestone must be registered |
 | `approvePayment(requestId)` | APPROVER | Must be pending; amount ≤ balance minus already-approved amounts |
 | `rejectPayment(requestId)` | APPROVER | Must be pending |
-| `verifyMilestone(milestoneId)` | APPROVER | Records official verification |
-| `releasePayment(requestId)` | APPROVER | Must be approved; any linked milestone must be verified; status flips **before** the transfer, so it pays once |
-| `getBalance(projectId)` | view | Balance and available funds (balance minus approved-but-unpaid) |
-| `getTransaction(requestId)` | view | The full request with its status |
+| `verifyMilestone(milestoneId)` | APPROVER | Official verification of a registered milestone |
+| `releasePayment(requestId)` | APPROVER | Must be approved; a linked milestone must be verified; the status flips **before** the transfer, so it pays once |
+| `getBalance()`, `getTransaction(requestId)`, `milestoneStatus(id)` | view | Balance and available funds, a request with its status, a milestone's status |
 
-**Safety tests (Hardhat):** a double release reverts, an outsider's approval reverts, overspending reverts, a release before milestone verification reverts, and the full flow ends at R1,817,600.00.
+**Tests:** 43 Hardhat tests, including the five safety checks (a double release reverts, an outsider's approval reverts, overspending reverts, a release before milestone verification reverts) and the full demo flow ending at **R1,817,600.00**.
 
-### One wallet interface, two implementations
+### Networks
 
-```ts
-export type TxStatus = 'pending' | 'confirmed' | 'failed';
-export interface TxResult {
-  mode: 'simulated' | 'fuji'; txHash: string; status: TxStatus;
-  blockNumber?: number; error?: string;
-}
+| | Avalanche Fuji | BNB Smart Chain testnet |
+| --- | --- | --- |
+| Chain ID | `43113` | `97` |
+| Gas | test AVAX | test BNB |
+| Explorer | [testnet.snowtrace.io](https://testnet.snowtrace.io) | [testnet.bscscan.com](https://testnet.bscscan.com) |
+| Deploy | `npm run deploy:fuji` | `npm run deploy:bsc` |
+| Status | ⏳ deploying | ⏳ deploy-ready, waiting for test BNB |
 
-export interface WalletService {
-  createProject(projectId: string, allocatedCents: bigint): Promise<TxResult>;
-  fundProject(projectId: string, amountCents: bigint): Promise<TxResult>;
-  submitPaymentRequest(invoiceId: string, projectId: string, supplierAddress: string,
-                       amountCents: bigint, documentSha256: string,
-                       milestoneId?: string): Promise<TxResult>;
-  approvePayment(invoiceId: string): Promise<TxResult>;
-  rejectPayment(invoiceId: string): Promise<TxResult>;
-  verifyMilestone(milestoneId: string): Promise<TxResult>;
-  releasePayment(invoiceId: string): Promise<TxResult>;
-  getBalance(projectId: string): Promise<{ balanceCents: bigint; availableCents: bigint }>;
-}
-```
+Deployed addresses are committed in `contracts/deployments/<network>.json` and `packages/shared/abi/addresses.json`. They are public addresses, not secrets.
 
-- **`SimulatedWalletService`** is backed by the database and applies the same rules as the contract. Its `tx_hash` is `sim_<uuid>` and it confirms instantly. In the UI it is always labelled **"Simulated ledger"**.
-- **`FujiWalletService`** uses ethers v6, with keys = `keccak256(toUtf8Bytes(uuid))`. It waits for 1 confirmation and maps reverts to API error codes.
-
-### Network
-
-| Setting | Value |
-| --- | --- |
-| Network | Avalanche Fuji C-Chain |
-| Chain ID | `43113` |
-| RPC | `https://api.avax-test.network/ext/bc/C/rpc` |
-| Gas | Test AVAX |
-| Explorer | [testnet.snowtrace.io](https://testnet.snowtrace.io) |
-| Docs | [build.avax.network/docs/primary-network](https://build.avax.network/docs/primary-network) |
-
-> **Honest note:** in this MVP the API server signs every transaction. The on-chain roles prove that **the rules** were followed, not **who clicked**. In production, each approver would sign with their own key or through a multisig.
-
-Payment execution is **idempotent**. The API tracks `pending`, `confirmed` and `failed` transactions and never reports success before confirmation.
+> **Honest note:** in this MVP one server key (held by the Edge Function) signs every transaction. The on-chain roles prove that **the rules** were followed, not **which person clicked**. In production each approver would sign with their own key or through a multisig.
 
 ---
 
-## API reference
+## Wallet service
 
-All mutations require authentication, a role check and zod validation. Public reads return only approved, redacted data.
+One interface covers every mode. Switching is one setting (`wallet_mode` in `private.runtime_config`):
 
-| Method | Endpoint | Who | Does |
-| --- | --- | --- | --- |
-| GET | `/me` | signed in | User and role |
-| GET | `/projects` | public | Projects with budget, paid and balance |
-| GET | `/projects/:id` | public | Project, milestones, redacted invoices |
-| POST | `/projects` | municipality | Create the project; chain create + fund |
-| GET | `/projects/:id/wallet` | public | `balance_cents`, `available_cents`, mode, contract address |
-| GET | `/projects/:id/transactions` | public | Ledger / chain events, newest first |
-| POST | `/suppliers` | municipality | Register a supplier |
-| GET | `/suppliers/:id` | public | Redacted supplier profile |
-| POST | `/invoices` | supplier | Multipart PDF + JSON; stores the hash; registers the request |
-| GET | `/invoices?status=&project_id=` | municipality, auditor; supplier sees own | Review queue |
-| GET | `/invoices/:id` | municipality, auditor, owning supplier | Items, AI review, approvals, transactions |
-| POST | `/invoices/:id/analyse` | municipality | Run AI → `analysed` |
-| POST | `/invoices/:id/approve` | municipality, not the submitter | `{ reason }` required if flagged |
-| POST | `/invoices/:id/hold` | municipality | `{ reason }` |
-| POST | `/invoices/:id/reject` | municipality | `{ reason }` |
-| POST | `/payments/:invoiceId/execute` | municipality | Idempotent release; returns the existing release if one is live |
-| POST | `/milestones/:id/evidence` | supplier, citizen | Photo upload + SHA-256 duplicate check |
-| POST | `/milestones/:id/confirm` | citizen | Community confirmation (evidence, not authorisation) |
-| POST | `/milestones/:id/verify` | municipality, auditor | Official verification → `verified` + chain |
-| POST | `/projects/:id/concerns` | citizen | Raise a concern |
-| POST | `/concerns/:id/respond` | municipality | Public response |
-| POST | `/demo/reset` | needs `DEMO_RESET_KEY` | Wipe and reseed |
+| `WALLET_MODE` | Where the money lives |
+| --- | --- |
+| `simulated` (live now) | P2's atomic SQL ledger in Supabase, with the same rules as the contracts; hashes look like `sim_<uuid>` and the UI labels it **Simulated ledger** |
+| `fuji` | Avalanche Fuji: one `ProjectWallet` per project, via `packages/wallet`'s `ChainWalletService` |
+| `bsc` | BNB Smart Chain testnet: the same contracts and service |
 
-### Data model
+Until the chain adapter is plugged into `civicproof-api`, live financial actions **fail closed** with `503 CHAIN_NOT_READY` and never pretend to pay.
 
-13 tables: `projects`, `suppliers`, `milestones`, `invoices`, `invoice_items`, `ai_reviews`, `approvals`, `transactions`, `evidence`, `verifications`, `concerns`, `users`, `reference_prices`. They are all linked through a shared `project_id`.
+**`packages/wallet` ships a simulated and a chain implementation that pass the same test suite** (the safety checks plus the CP001 golden path), so switching mode can't change how the demo behaves.
+
+Every operation returns a `TxResult` and never throws for a rule violation:
+
+| `status` | Meaning | What to do |
+| --- | --- | --- |
+| `confirmed` | Done | Store `txHash` and `blockNumber` in `transactions` |
+| `failed` + `error` | A rule refused it (e.g. `MILESTONE_NOT_VERIFIED`, `INSUFFICIENT_AVAILABLE`); nothing changed and no gas was spent | Show the reason |
+| `pending` | Sent but not confirmed in time | Keep `payment_pending`; reconcile with `getTxStatus(txHash)`. **Never treat as failed.** |
+
+See [`packages/wallet/README.md`](packages/wallet/README.md) for the full interface.
 
 ---
 
 ## Demo data
 
-**Project CP001 · Kgotso Valley Water Access** has a budget of R2,000,000.00. Its permitted categories are water storage, pipes and installation. Milestone **M1** is *"8 tanks installed at 4 village sites"*.
+**Project CP001 · Kgotso Valley Water Access** (`10000000-0000-4000-8000-000000000001`): budget R2,000,000.00; permitted categories are water storage, pipes and installation. Milestone **M1** (`30000000-0000-4000-8000-000000000001`): *"8 tanks installed at 4 village sites"*.
 
 **Reference prices (seeded, fictional):** 10,000 L tank R14,500.00 · 250 mm HDPE pipe (12 m) R5,200.00 · tank installation R7,500.00 per tank.
 
@@ -480,99 +421,89 @@ All mutations require authentication, a role check and zod validation. Public re
 
 **Wallet:** R2,000,000.00 → **R1,881,600.00** after #1 → **R1,817,600.00** after #4. R1,025,000.00 in held or rejected invoices (#2 + #3) never leaves the wallet, including R136,000.00 of potential overpricing.
 
-The full 3-minute script is in [`docs/demo-script.md`](docs/demo-script.md).
+**Supplier test addresses** (receive-only; no private keys exist for them):
+
+| Supplier | Address |
+| --- | --- |
+| Blue Basin Tanks (Pty) Ltd | `0xa1f35993bFfa1C9219e596FBb58e510fB98607B4` |
+| Pipeworks Direct CC | `0x4E42b0ecC90677d5E6d51Fd54e3d8f0a3b6EeECD` |
+| Summit Motors (Pty) Ltd | `0xfD78547677ea7b82AD14da551624f6695C8db312` |
 
 ---
 
-## Team and ownership
+## Team
 
-| | Role | Owns | Must be done by T+7:00 |
-| --- | --- | --- | --- |
-| **P1** | Frontend lead | `apps/web` shell, routing, all portal pages | Public dashboard, supplier invoice form, municipality review queue, payment button |
-| **P2** | Backend + tech lead | `apps/api`, `supabase/`, `packages/shared`, merges to `main` | Auth + roles, every core endpoint, invoice state machine, idempotent payments, API deployed |
-| **P3** | Blockchain + **project lead** | `contracts/`, `services/wallet` | Contract on Fuji, `FujiWalletService`, golden path on-chain |
-| **P4** | AI | `services/ai`, `components/ai` | Extraction, rules engine, price matching, `/analyse`, AI findings card |
-| **P5** | Product, delivery, demo | Seed data, `routes/delivery`, `pages/delivery`, pitch | Seed data + 4 demo invoice PDFs, pitch skeleton, QA at every gate |
-
-P2 has the final say on technical calls, and P5 has the final say on scope and the demo. P3, as project lead, coordinates the gates and the check-ins.
-
----
-
-## Build timeline and gates
-
-| Gate | Time | Definition of done |
+| | Role | Owns |
 | --- | --- | --- |
-| **G0** | T+1:00 | Repo live, schema applied, keys shared, shared contracts frozen |
-| **G1** | T+4:00 | Web and API deployed; dashboard reads real projects; invoice submit works in simulated mode; `/analyse` returns the JSON shape; contract on Fuji |
-| **G2** ⭐ | **T+7:00** | **Invoices #1–#3 run end to end from a clean reset; chain go / no-go decided** |
-| **G3** | T+8:00 | Feature freeze: only the delivery module and polish from here |
-| **G4** | T+10:30 | Code freeze: bug fixes only, after the team agrees |
-| **Submit** | T+12:00 | Pitch rehearsed three times; backup video recorded |
+| **P1** | Frontend lead | `apps/web`: shell, routing and every portal page |
+| **P2** | Backend (Supabase) + tech lead | `supabase/` (schema, migrations, RLS, `civicproof-api`), `packages/shared`, `docs/`, merges to `main` |
+| **P3** | Blockchain + **project lead** | `contracts/`, `packages/wallet`, deployments, the chain adapter inside `civicproof-api`; coordinates gates and check-ins |
+| **P4** | AI | Extraction, rules engine, explanations, AI findings card |
+| **P5** | Product, delivery, demo | Seed content, delivery module, pitch, QA at every gate |
 
-**Golden path first.** Nobody starts extension work until G2 passes.
+P2 has the final say on technical calls, and P5 has the final say on scope and the demo.
 
-### Check-in format (post at every gate)
+---
 
-```
-P# · Gate G1 (T+4:00)
-Done:            what works now (link or screenshot)
-Not done:        what slipped and how much is left
-Blocked by:      person / thing
-Contract change: any change to schema, API, AI JSON or wallet interface (P2 must approve)
-Next 3 hours:    top 3 tasks
-```
+## Build status
+
+| Piece | Status |
+| --- | --- |
+| Contracts (Factory + ProjectWallet + DemoZAR), 43 tests | ✅ merged |
+| Wallet service (simulated + Fuji/BNB), 34 tests | ✅ built (`p3/wallet-service`), needs a PR |
+| Supabase backend: schema, RLS, RPCs, `civicproof-api`, simulated ledger | ✅ deployed and verified (`p2/backend`) |
+| Frontend pages 0–6 (dashboard, supplier, review) | 🟡 built on mock data; connecting to Supabase |
+| Chain adapter (Fuji/BNB) inside `civicproof-api` | ⏳ P3: live chain actions return `CHAIN_NOT_READY` until then |
+| Deterministic rules analysis | ✅ in `civicproof-api` (rules mode) |
+| PDF extraction + LLM explanations | ⏳ P4 |
+| Fuji deployment | ⏳ waiting on deployer funding |
+| BNB testnet deployment | ⏳ waiting on test BNB |
 
 ---
 
 ## Git workflow
 
-- **One branch per task**, prefixed with your role: `p1/dashboard`, `p3/fuji-wallet`, `p4/rules-engine`.
-- **Small PRs.** P2 merges to `main` at least every 90 minutes.
-- **`main` must always deploy.**
-- Commit `.env.example` only, **never `.env`** or private keys.
-- Any change to the shared contracts (schema, API, AI JSON, wallet interface) goes through P2 and is announced to the team.
+- **One branch per task**, named after your role: `p1/review`, `p2/backend`, `p3/wallet-service`.
+- **Small PRs into `main`.** P2 merges, at least every 90 minutes. `main` must always build.
+- **Never commit `.env` files, private keys or tokens.** Run `git status` before every commit.
+- Changes to shared rules (schema, operations table, AI JSON, wallet interface) are announced to the team before merging.
 
 ---
 
 ## Risks and fallbacks
 
-Every risky piece has a switch we can flip in under a minute, and we rehearse each switch before we need it.
+Every risky piece has a switch we can flip in under a minute.
 
-| Risk | Fallback | Owner | Decide by |
-| --- | --- | --- | --- |
-| No Fuji test AVAX, or a flaky RPC | Local Hardhat node, or `WALLET_MODE=simulated` with a visible "Simulated ledger" label; show the deployed contract and its tests | P3 | Faucet by T+1:00; go / no-go at T+7:00 |
-| LLM slow, down or inconsistent | Cache by document hash; `AI_MODE=rules`; manual line-item entry | P4 | Any time |
-| Integration pain at the end | Frozen contracts, mocks, merges every 90 min | P2 | Every gate |
-| Auth eats hours | Seeded users + "View as" role switcher; no sign-up | P1, P2 | T+2:00 |
-| Deploy fails at the end | Skeleton live at T+4:00, redeployed at each gate | P2 | T+4:00 |
-| Demo data drifts | `demo:reset` before every rehearsal | P2, P5 | T+9:30 |
-| Venue Wi-Fi drops | Backup recording at T+10:45; phone hotspot; local run | P5 | T+10:45 |
-| Scope creep | Parking-lot list; freezes at T+8:00 and T+10:30 | P5 | Always |
+| Risk | Fallback |
+| --- | --- |
+| No test AVAX / BNB, or a flaky RPC | `WALLET_MODE=simulated` (clearly labelled), and show the deployed contracts and their tests |
+| BNB faucet refuses (needs a mainnet balance) | Demo on Avalanche; BNB is the same contracts, `npm run deploy:bsc` once funded |
+| LLM slow, down or inconsistent | Results cached by document hash; `AI_MODE=rules`; manual line-item entry |
+| Chain adapter not ready in time | Stay on the simulated ledger (clearly labelled); show the deployed contracts, their tests and a Snowtrace transaction separately |
+| Auth eats hours | Seeded demo users plus a "View as" role switcher; no sign-up flow |
+| Demo data drifts | Demo reset before every rehearsal |
+| Venue Wi-Fi drops | Backup screen recording; phone hotspot; local run with mocks |
 
 ---
 
-## Scope, limitations and roadmap
+## Scope and roadmap
 
-**MVP scope (must ship):** project + wallet, supplier registry, invoice submission, AI screening, approve / hold / reject, payment execution, public dashboard.
+**In scope:** project wallets, supplier registry, invoice submission, AI screening, approve / hold / reject, on-chain payment, public dashboard, and delivery verification.
 
-**Should:** a real Avalanche Fuji contract behind the same wallet interface.
+**Deliberately excluded:** real government funds, national procurement integration (e.g. CSD / eTender), custom model training, production legal compliance, real sign-up and email flows, notifications, multi-municipality admin, mobile app and handwriting OCR.
 
-**Could (after G2):** milestones, evidence with duplicate-photo detection, community confirmation, concerns, delivery-gated payment.
+**After the hackathon:**
 
-**Deliberately excluded:** real government funds, national procurement (e.g. CSD / eTender) integration, custom AI model training, production legal compliance, real sign-up and email flows, notifications, multi-municipality admin, mobile app, handwriting OCR, microservices and Kubernetes.
-
-**Roadmap beyond the hackathon:**
-
-- Per-approver signing (individual keys or multisig) instead of a server signer
-- Integration with real supplier registries and verified price data sources
-- Conventional banking rails, with on-chain records kept as the audit trail
-- Independent security audit of the contracts and API
-- Physical verification partnerships (community monitors, geotagged evidence)
-- Institutional pilots with municipalities and the Auditor-General's office
+- Per-approver signing (individual keys or a multisig) instead of one server key
+- A real rand-backed stablecoin in place of dZAR; the contracts stay the same
+- Integration with real supplier registries and verified price sources
+- Live on more EVM chains: the contracts already run on Avalanche and BNB Chain
+- Independent security audit of the contracts and database policies
+- Pilots with municipalities and the Auditor-General's office
 
 ---
 
 <p align="center">
-  <b>CivicProof</b> · BACISS 2026 · Concept architecture, simulated funds<br/>
+  <b>CivicProof</b> · BACISS 2026 · Simulated funds on public testnets<br/>
   <i>AI recommends. Authorised humans decide. Citizens can see it all.</i>
 </p>
