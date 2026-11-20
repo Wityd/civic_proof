@@ -92,3 +92,18 @@ retain the returned invoice/transaction ID and retry that action or have staff c
 `POST /chain/reconcile`. Do not submit a second invoice to retry an existing one.
 Rules-mode analysis uses submitted manual data; PDF/LLM extraction remains P4's
 integration boundary. See [BACKEND.md](BACKEND.md) for all implemented routes.
+
+### Supplier selection and review filters
+
+`GET /me` now includes `supplier_ids: string[]` and
+`suppliers: { id: string; name: string }[]`, restricted to records whose `user_id`
+matches the authenticated caller. Accounts without owned suppliers receive empty
+arrays. The demo supplier owns three records: let them select one and send its
+`id` as `supplier_id` when submitting an invoice. Ownership is still checked by
+the server; these fields do not grant additional access.
+
+`GET /invoices?status=submitted,analysed,on_hold,approved` returns invoices matching
+any listed status, under the caller's existing RLS permissions. A single status
+and an omitted filter both remain supported. Spaces and duplicates are accepted;
+unknown statuses and empty list entries return HTTP 400. Combine with
+`project_id=UUID` to limit results to a project.
