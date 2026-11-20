@@ -1,4 +1,5 @@
 import { analyse, type AnalysisContext } from '../_shared/rules.ts';
+import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 class ApiError extends Error { constructor(public code: string, message: string, public status = 400) { super(message); } }
@@ -23,6 +24,9 @@ async function db(path: string, method = 'GET', body?: unknown, token?: string) 
   return result;
 }
 const rpc = (name: string, args: unknown) => db(`rpc/${name}`, 'POST', args);
+// P3 chain mode (fuji | bsc): prepare → chain → settle. Simulated mode never uses this.
+const chainDeps: ChainDeps = { rpc: (name, args) => rpc(name, args), fail: (code, message, status) => new ApiError(code, message, status) };
+const readMode = async (requested: string | null) => requested || String(await rpc('cp_wallet_mode', {}));
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError('VALIDATION', 'A JSON object is required.');
@@ -90,10 +94,10 @@ async function handle(req: Request): Promise<Response> {
     const requestUrl = new URL(req.url);
     const path = requestUrl.pathname.replace(/^.*\/civicproof-api\/?/, '/').replace(/\/$/, '') || '/';
     if (req.method === 'GET' && path === '/health') return response({ data: { status: 'ok', architecture: 'supabase-first' } });
-    if (req.method === 'GET' && path === '/projects') return response({ data: await rpc('get_public_dashboard', { p_project_id: null, p_mode: requestUrl.searchParams.get('mode') || 'simulated' }) });
+    if (req.method === 'GET' && path === '/projects') return response({ data: await rpc('get_public_dashboard', { p_project_id: null, p_mode: await readMode(requestUrl.searchParams.get('mode')) }) });
     const publicProject = path.match(/^\/projects\/([^/]+)(?:\/(wallet|transactions))?$/);
     if (req.method === 'GET' && publicProject) {
-      const rows = await rpc('get_public_dashboard', { p_project_id: uuid(publicProject[1]), p_mode: requestUrl.searchParams.get('mode') || 'simulated' });
+      const rows = await rpc('get_public_dashboard', { p_project_id: uuid(publicProject[1]), p_mode: await readMode(requestUrl.searchParams.get('mode')) });
       const project = rows[0]; if (!project) throw new ApiError('NOT_FOUND', 'Project not found.', 404);
       return response({ data: publicProject[2] === 'transactions' ? project.transactions : publicProject[2] === 'wallet' ? { balance_cents: project.balance_cents, available_cents: project.available_cents, paid_cents: project.paid_cents, mode: project.mode, wallet_address: project.wallet_address } : project });
     }
@@ -132,14 +136,19 @@ async function handle(req: Request): Promise<Response> {
 
     if (path === '/invoices') {
       requireRole('supplier');
-      if (context.mode !== 'simulated') throw new ApiError('CHAIN_NOT_READY', 'P3 wallet adapter must be configured first.', 503);
       const form = await multipart(req); let input;
       try { input = record(JSON.parse(String(form.get('invoice') || ''))); } catch { throw new ApiError('VALIDATION', 'The invoice form field must contain JSON.'); }
       if (!Array.isArray(input.line_items) || !input.line_items.length || input.line_items.length > 100) throw new ApiError('VALIDATION', 'Provide 1-100 line items.');
       const items = input.line_items.map((v) => { const i = record(v); const q = i.quantity; if (typeof q !== 'number' || !Number.isFinite(q) || q <= 0 || q > 1e6 || Math.abs(q * 10000 - Math.round(q * 10000)) > 1e-5) throw new ApiError('VALIDATION', 'Quantity requires a positive number with up to four decimals.'); return { description: text(i.description, 1000), category: text(i.category), reference_sku: i.reference_sku ? text(i.reference_sku) : null, quantity: q, unit_price_cents: cents(i.unit_price_cents), line_total_cents: cents(i.line_total_cents) }; });
       const inv = { id: crypto.randomUUID(), project_id: uuid(input.project_id), supplier_id: uuid(input.supplier_id), milestone_id: input.milestone_id ? uuid(input.milestone_id) : null, invoice_number: text(input.invoice_number), invoice_date: date(input.invoice_date), total_cents: cents(input.total_cents, true) };
       const file = await upload(form.get('file'), actor, 'invoices');
-      try { return response({ data: await rpc('cp_submit_invoice', { p_actor: actor, p_invoice: { ...inv, document_path: file.path, document_sha256: file.hash }, p_items: items }) }, 201); }
+      try {
+        if (context.mode !== 'simulated') {
+          const data = await chainSubmitInvoice(chainDeps, actor, { ...inv, document_path: file.path, document_sha256: file.hash }, items);
+          return response({ data }, chainHttpStatus(data, 201));
+        }
+        return response({ data: await rpc('cp_submit_invoice', { p_actor: actor, p_invoice: { ...inv, document_path: file.path, document_sha256: file.hash }, p_items: items }) }, 201);
+      }
       catch (e) { await file.remove(); throw e; }
     }
     if (invoiceRoute?.[2]) {
@@ -149,14 +158,26 @@ async function handle(req: Request): Promise<Response> {
         return response({ data: await rpc('cp_store_analysis', { p_actor: actor, p_invoice_id: id, p_review: analyse(input) }) });
       }
       const body = await json(req);
+      if (context.mode !== 'simulated') {
+        const data = await chainDecide(chainDeps, actor, id, invoiceRoute[2] as 'approve' | 'hold' | 'reject', text(body.reason, 4000, false) || null);
+        return response({ data }, chainHttpStatus(data));
+      }
       return response({ data: await rpc('cp_decide', { p_actor: actor, p_invoice_id: id, p_decision: invoiceRoute[2], p_reason: text(body.reason, 4000, false) || null }) });
     }
     const payment = path.match(/^\/payments\/([^/]+)\/execute$/);
-    if (payment) { requireRole('municipality'); return response({ data: await rpc('cp_execute_payment', { p_actor: actor, p_invoice_id: uuid(payment[1]) }) }); }
+    if (payment) {
+      requireRole('municipality');
+      if (context.mode !== 'simulated') { const data = await chainExecutePayment(chainDeps, actor, uuid(payment[1])); return response({ data }, chainHttpStatus(data)); }
+      return response({ data: await rpc('cp_execute_payment', { p_actor: actor, p_invoice_id: uuid(payment[1]) }) });
+    }
     const milestone = path.match(/^\/milestones\/([^/]+)\/(register|verify|confirm|evidence)$/);
     if (milestone) {
       const id = uuid(milestone[1]);
-      if (['register', 'verify'].includes(milestone[2])) { requireRole(...(milestone[2] === 'register' ? ['municipality'] : ['municipality','auditor'])); return response({ data: await rpc('cp_milestone', { p_actor: actor, p_milestone: id, p_action: milestone[2] }) }); }
+      if (['register', 'verify'].includes(milestone[2])) {
+        requireRole(...(milestone[2] === 'register' ? ['municipality'] : ['municipality','auditor']));
+        if (context.mode !== 'simulated') { const data = await chainMilestone(chainDeps, actor, id, milestone[2] as 'register' | 'verify'); return response({ data }, chainHttpStatus(data)); }
+        return response({ data: await rpc('cp_milestone', { p_actor: actor, p_milestone: id, p_action: milestone[2] }) });
+      }
       if (milestone[2] === 'confirm') { requireRole('citizen'); const body = await json(req); return response({ data: await db('verifications', 'POST', { milestone_id: id, actor_id: actor, kind: 'community', note: text(body.note, 4000, false) }, token) }, 201); }
       requireRole('supplier', 'citizen'); const form = await multipart(req);
       const file = await upload(form.get('file'), actor, 'evidence');
@@ -183,7 +204,8 @@ async function handle(req: Request): Promise<Response> {
     if (concern) { requireRole('citizen'); const body = await json(req); return response({ data: await db('concerns', 'POST', { project_id: uuid(concern[1]), raised_by: actor, message: text(body.message, 4000) }, token) }, 201); }
     const respond = path.match(/^\/concerns\/([^/]+)\/respond$/);
     if (respond) { requireRole('municipality'); const body = await json(req); return response({ data: await rpc('cp_respond_concern', { p_actor: actor, p_concern: uuid(respond[1]), p_response: text(body.response, 4000) }) }); }
-    if (path.startsWith('/chain/')) { requireRole('municipality','auditor'); throw new ApiError('CHAIN_NOT_READY', 'P3 must configure the signing and verified-receipt adapter. No chain update has been accepted.', 503); }
+    if (path === '/chain/reconcile') { requireRole('municipality','auditor'); return response({ data: await chainReconcile(chainDeps) }); }
+    if (path.startsWith('/chain/')) { requireRole('municipality','auditor'); throw new ApiError('NOT_FOUND', 'Unknown chain route. Use POST /chain/reconcile.', 404); }
     throw new ApiError('NOT_FOUND', 'Route not found.', 404);
   } catch (e) {
     const error = e instanceof ApiError ? e : new ApiError('INTERNAL_ERROR', 'The operation could not be completed.', 500);
