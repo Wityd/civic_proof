@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "strict": true, "lib": ["deno.ns", "dom", "dom.iterable", "esnext"] },
+  "tasks": { "check": "deno check index.ts", "test": "deno test ../_shared/rules_test.ts" }
+}
