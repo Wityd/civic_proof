@@ -1,0 +1,32 @@
+{
+  "name": "@civicproof/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CivicProof smart contracts: DemoZAR test token and CivicProofWallet project escrow",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji",
+    "deploy:bsc": "hardhat run scripts/deploy.ts --network bscTestnet",
+    "setup:demo:local": "hardhat run scripts/setup-demo.ts --network localhost",
+    "setup:demo:fuji": "hardhat run scripts/setup-demo.ts --network fuji",
+    "setup:demo:bsc": "hardhat run scripts/setup-demo.ts --network bscTestnet",
+    "export-abi": "hardhat run scripts/export-abi.ts",
+    "export-ledger:fuji": "hardhat run scripts/export-ledger.ts --network fuji",
+    "export-ledger:bsc": "hardhat run scripts/export-ledger.ts --network bscTestnet",
+    "live:invoice1": "node scripts/live-invoice.mjs"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "5.0.0",
+    "@types/node": "^22.20.5",
+    "dotenv": "^18.0.10",
+    "hardhat": "^2.29.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.6.1"
+  }
+}
