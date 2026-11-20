@@ -1,0 +1,34 @@
+[
+  {
+    "id": "u_citizen",
+    "name": "Thandi Mokoena",
+    "email": "citizen@civicproof.demo",
+    "role": "citizen",
+    "title": "Kgotso Valley resident",
+    "supplier_id": null
+  },
+  {
+    "id": "u_supplier",
+    "name": "Sipho Ndlovu",
+    "email": "supplier@civicproof.demo",
+    "role": "supplier",
+    "title": "Blue Basin Tanks (Pty) Ltd",
+    "supplier_id": "sup_bluebasin"
+  },
+  {
+    "id": "u_municipality",
+    "name": "Lerato Khumalo",
+    "email": "municipality@civicproof.demo",
+    "role": "municipality",
+    "title": "Municipal finance officer",
+    "supplier_id": null
+  },
+  {
+    "id": "u_auditor",
+    "name": "Pieter van Wyk",
+    "email": "auditor@civicproof.demo",
+    "role": "auditor",
+    "title": "Independent auditor",
+    "supplier_id": null
+  }
+]

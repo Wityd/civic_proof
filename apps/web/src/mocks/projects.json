@@ -1,0 +1,12 @@
+[
+  {
+    "id": "CP001",
+    "name": "Kgotso Valley Water Access",
+    "description": "Water tanks, pipes and installation for 4 village sites in Kgotso Valley.",
+    "location": "Kgotso Valley (fictional)",
+    "categories": ["water_storage", "pipes", "installation"],
+    "budget_cents": 200000000,
+    "paid_cents": 11840000,
+    "balance_cents": 188160000
+  }
+]
