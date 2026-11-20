@@ -10,6 +10,8 @@ import type {
   AiReview,
   ApiResponse,
   Approval,
+  ConfirmDeliveryPayload,
+  DeliveryConfirmation,
   Evidence,
   InvoiceDetail,
   InvoiceSummary,
@@ -429,6 +431,31 @@ async function submitEvidence(id: string, body: unknown): Promise<MockResult> {
   return ok(evidence, 201)
 }
 
+// ---------- POST /milestones/:id/confirm ----------
+
+const confirmedBy = new Set<string>() // `${userId}:${milestoneId}`, kept private
+
+function confirmDelivery(id: string, body: unknown): MockResult {
+  const denied = requireRole('citizen')
+  if (denied) return denied
+  const milestone = milestones.find((m) => m.id === id)
+  if (!milestone) return notFound('Milestone')
+  const payload = body as Partial<ConfirmDeliveryPayload> | undefined
+  if (!payload?.answer || !['yes', 'no', 'not_sure'].includes(payload.answer)) {
+    return fail(400, 'BAD_REQUEST', 'Answer must be yes, no or not_sure')
+  }
+  const key = `${currentUser()!.id}:${id}`
+  if (confirmedBy.has(key)) return fail(409, 'ALREADY_CONFIRMED', 'You already answered for this delivery')
+  confirmedBy.add(key)
+  const confirmation: DeliveryConfirmation = {
+    id: `conf_${Date.now()}`,
+    milestone_id: id,
+    answer: payload.answer,
+    created_at: now(),
+  }
+  return ok(confirmation, 201)
+}
+
 // ---------- router ----------
 
 export async function mockRequest(
@@ -449,6 +476,7 @@ export async function mockRequest(
   if ((m = path.match(/^\/payments\/([^/]+)\/execute$/))) return executePayment(m[1])
   if ((m = path.match(/^\/milestones\/([^/]+)\/verify$/))) return verifyMilestone(m[1])
   if ((m = path.match(/^\/milestones\/([^/]+)\/evidence$/))) return submitEvidence(m[1], body)
+  if ((m = path.match(/^\/milestones\/([^/]+)\/confirm$/))) return confirmDelivery(m[1], body)
 
   return fail(501, 'NOT_MOCKED', `No mock yet for ${method} ${path}`)
 }
