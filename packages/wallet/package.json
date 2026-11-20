@@ -1,0 +1,23 @@
+{
+  "name": "@civicproof/wallet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CivicProof WalletService: simulated (Supabase) and on-chain (Avalanche Fuji / BNB testnet) implementations behind one interface",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:simulated": "vitest run test/simulated.test.ts",
+    "test:chain": "vitest run test/chain.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ethers": "6.17.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}
