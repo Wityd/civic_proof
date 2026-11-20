@@ -1,8 +1,9 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { AuditPage } from './pages/AuditPage'
 import { ConfirmDeliveryPage } from './pages/ConfirmDeliveryPage'
 import { EvidencePage } from './pages/EvidencePage'
+import { LandingPage } from './pages/LandingPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { MyInvoicesPage } from './pages/MyInvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
@@ -11,11 +12,13 @@ import { ReviewInvoicePage } from './pages/ReviewInvoicePage'
 import { ReviewQueuePage } from './pages/ReviewQueuePage'
 import { ProjectsPage } from './pages/ProjectsPage'
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
+  // Public landing page: its own full-width layout and nav.
+  { index: true, element: <LandingPage /> },
   {
     element: <Layout />,
     children: [
-      { index: true, element: <ProjectsPage /> },
+      { path: 'projects', element: <ProjectsPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
       { path: 'supplier/invoices', element: <MyInvoicesPage /> },
       { path: 'supplier/invoices/new', element: <NewInvoicePage /> },
@@ -28,4 +31,6 @@ export const router = createBrowserRouter([
       { path: '*', element: <ComingSoonPage /> },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(routes)
