@@ -1,0 +1,7 @@
+project_id = "civicproof"
+
+[functions.civicproof-api]
+# Auth is verified with Supabase Auth in the handler. Public read routes and CORS
+# preflight must also work without a user JWT. Sensitive routes require a user.
+verify_jwt = false
+entrypoint = "./functions/civicproof-api/index.ts"
