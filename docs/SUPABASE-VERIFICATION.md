@@ -1,52 +1,51 @@
-# Supabase verification results
+# Supabase-first verification
 
-Verified on 2026-11-20 against `CivicProof_Project`, reference
-`crshjvjrgnnypxbpjmob`, using the saved local token without displaying it.
+Verified 2026-11-20 against `CivicProof_Project`, reference
+`crshjvjrgnnypxbpjmob`, on branch `p2/backend`. No merge performed.
 
 | Check | Result |
 | --- | --- |
-| Application schema | 14 tables; RLS enabled on every table |
-| Project wallets | Fuji and BSC rows accepted; duplicate project/chain and case-insensitive address reuse on one chain rejected; zero address rejected |
-| Milestone registration | `register_milestone` accepted for BSC; missing milestone rejected; confirmed BSC transaction requires block number |
-| Trusted roles | Four `public.users` rows linked to four confirmed Auth users |
-| Password login | Successful sign-in for citizen, supplier, municipality and auditor; verification sessions signed out |
-| Auth settings | Email/password enabled; public signup and anonymous sign-in disabled; minimum password length 12 |
-| Anonymous access | Direct reads denied for all 14 application tables |
-| Signed-in access | Each of the four roles denied direct reads on all 14 tables and direct Storage upload |
-| Backend access | Service-role REST reads work |
-| Buckets | `invoices` and `evidence` private; 10 MiB file limit; PDF-only invoices and JPEG/PNG/WebP evidence |
-| File operations | Backend upload and private download succeeded in both buckets; anonymous private/public reads denied |
-| MIME enforcement | Disallowed text uploads rejected in both buckets |
-| Test cleanup | Temporary Storage objects deleted; final object count zero |
-| Duplicate submissions | Duplicate supplier invoice number and SHA-256 accepted for later rules-based flagging |
-| Payment idempotency constraint | Second pending release for the same invoice rejected even across modes; retry record allowed after failure |
-| Invoice states | Invalid transition and `paid` without confirmed matching release rejected |
-| Reviews | Flagged approval requires a reason and records override; self-approval rejected |
-| Project isolation | An invoice cannot link to a milestone from another project |
-| Seed | CP001, three suppliers, three prices, one unverified milestone, zero invoices |
-| Opening ledger | R2,000,000.00, explicitly `simulated`; no Fuji transaction claimed |
+| Edge code | Deno strict type check passed; deployed `civicproof-api` is active |
+| Rules adapter | Seven tests passed: fair/overpriced/wrong-purpose, arithmetic, duplicates, budget, supplier age and threshold boundaries |
+| Authentication | All four demo roles signed in; missing/forged user tokens rejected |
+| Trusted roles | Each user reads own profile only; direct role escalation and service-only RPC calls rejected |
+| Browser Data API | Public project reads and redacted dashboard work; own/staff invoice reads follow RLS |
+| Ordinary writes | Citizen concern insertion works; actor impersonation and official-verification forgery rejected |
+| Trusted fields | Direct invoice status and transaction writes rejected |
+| Files | PDF submission hashes actual bytes; authorised supplier/auditor downloads work; citizen invoice download denied |
+| Reviews | Fair invoice approves; inflated pipe invoice holds with R136,000 excess; wrong-purpose vehicle rejects |
+| Override | Flagged approval without reason rejected; hold/reject require written reasons |
+| Payment concurrency | Two simultaneous execute requests return the same confirmed release |
+| Budget concurrency | Of two simultaneous approvals exceeding available funds together, one succeeds and the other returns 409 |
+| Delivery | Registration required; payment blocked before official verification; community confirmation alone does not unlock payment |
+| Duplicate evidence | Repeated image bytes produce `DUPLICATE_EVIDENCE` |
+| Golden path | R2,000,000 -> R1,881,600 -> R1,817,600 in the isolated simulated test project |
+| Redaction | Public response excludes private paths/hashes, supplier contacts and submitter identity |
+| Chain boundary | Staff receive `503 CHAIN_NOT_READY`; unconfigured chain input never updates payment records |
+| Original database guards | Rolled-back checks passed for multichain wallets, BSC confirmation, cross-project links, invoice states and duplicate-release prevention |
+| Cleanup | Test project, invoices, evidence, ledger records, supplier fixture and files removed; CP001 preserved |
+| Final baseline | One real demo project, four trusted users, zero submitted invoices and zero stored files; runtime simulated |
 
-Database test fixtures were rolled back. Passwords are encrypted locally in
-`.local/demo-credentials.xml`, excluded from Git. Neither passwords nor API keys
-are included in this report.
+Run `scripts/Test-SupabaseFirst.ps1` in a private PowerShell session. It obtains
+local encrypted credentials, passes secrets only through the test process's
+environment, and clears those environment values afterward. The test creates an
+isolated project, uses real HTTPS endpoints and cleans up in `finally`.
 
-## Security advisor disposition
+## Security advisors
 
-- No ERROR findings remain.
-- Two warnings about browser execution of the pre-existing privileged
-  `public.rls_auto_enable()` helper were fixed by revoking execution from
-  `PUBLIC`, `anon` and `authenticated`. The helper and its automatic RLS behavior
-  remain in place for the owning database role.
-- Fourteen `rls_enabled_no_policy` INFO findings are expected: this project uses
-  backend-only application data access by design.
-- One warning remains: leaked-password protection is unavailable on this
-  project's current plan. An enable request returned `entitlement_required`;
-  Supabase requires Pro or above. No plan upgrade was performed. Demo passwords
-  were generated randomly and public signup is disabled.
+No ERROR findings. One INFO finding is intentional: `private.runtime_config`
+has RLS but no browser policies because only the trusted service role accesses
+it. Public application tables now have appropriate RLS policies.
 
-## Verification boundary
+The existing leaked-password protection warning remains: Supabase requires Pro
+or above for that feature. No paid upgrade was performed. See
+[Supabase password security](https://supabase.com/docs/guides/auth/password-security).
+Demo passwords are random; signup remains disabled.
 
-These checks verify the Supabase foundation. They do not claim that Express
-routes, fund reservation under concurrent API requests, chain reconciliation,
-P3's wallet, P4's analysis, public redaction or the frontend are implemented.
-Those integrations follow after this setup.
+## Limits
+
+This verifies a working simulated backend. Live chain signing/reconciliation
+requires P3's adapter and deployment configuration. PDF extraction and LLM
+explanations require P4's adapter. Neither integration is represented as complete.
+The current code accepts no unauthenticated blockchain webhook or caller-asserted
+transaction confirmation. A destructive reset endpoint is not deployed.

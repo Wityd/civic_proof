@@ -10,11 +10,11 @@ begin
   select id into strict municipal_user from public.users where role='municipality';
   if (select count(*) from pg_tables where schemaname='public') <> 14 then raise exception 'Expected 14 application tables'; end if;
   if exists (select 1 from pg_tables where schemaname='public' and not rowsecurity) then raise exception 'RLS missing'; end if;
-  if exists (select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and
-    (has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE') or
-     has_table_privilege('authenticated',c.oid,'SELECT,INSERT,UPDATE,DELETE')))
-    then raise exception 'Browser role has application table privileges'; end if;
-  if exists (select 1 from pg_policies where schemaname in ('public','storage')) then raise exception 'Unexpected browser policy'; end if;
+  if has_table_privilege('authenticated','public.invoices','INSERT,UPDATE,DELETE') or
+     has_table_privilege('authenticated','public.transactions','INSERT,UPDATE,DELETE') or
+     has_column_privilege('authenticated','public.users','role','UPDATE') then
+    raise exception 'Browser role can modify trusted financial/role state'; end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='users') then raise exception 'Profile RLS policy missing'; end if;
 
   insert into public.invoices (id,project_id,supplier_id,submitted_by,invoice_number,invoice_date,total_cents,document_path,document_sha256)
   values (invoice_one,project_id,supplier_id,supplier_user,'VERIFY-DUPLICATE','2026-11-18',100,'verification/no-real-file.pdf',repeat('a',64)),
