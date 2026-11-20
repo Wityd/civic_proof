@@ -204,7 +204,8 @@ export interface Approval {
   overrode_ai: boolean
   ai_review_id: string | null
   created_at: string
-  actor_name?: string // REQUESTED
+  actor_display_name?: string
+  actor_name?: string // legacy/mock responses
 }
 
 // GET /invoices/:id
@@ -255,13 +256,14 @@ export interface Evidence {
   flags: FlagCode[]
 }
 
-// POST /milestones/:id/confirm. The API stores { note } only; the answer is put at the start of the note.
+// POST /milestones/:id/confirm. Historical note-only records have a null answer.
 export type DeliveryAnswer = 'yes' | 'no' | 'not_sure'
 export interface Verification {
   id: string
   milestone_id: string
   actor_id: string
   kind: 'community' | 'official'
+  answer: DeliveryAnswer | null
   note: string
   created_at: string
 }
