@@ -1,1 +1,15 @@
-{}
+{
+  "fuji": {
+    "chainId": 43113,
+    "DemoZAR": "0x1be50e878326F3DDb90B03a817B0F266B23a58E1",
+    "CivicProofFactory": "0x6E243F5e663DB56f8d4e5e3B32E24BAf3779c791",
+    "factoryBlock": 61385456,
+    "projects": {
+      "10000000-0000-4000-8000-000000000001": {
+        "projectId": "0x4cb2c90e03c2864a6f1c4aba5e6da36fda63cc65a33380ba8b7ad2ca9df0835e",
+        "wallet": "0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D",
+        "allocatedCents": "200000000"
+      }
+    }
+  }
+}
