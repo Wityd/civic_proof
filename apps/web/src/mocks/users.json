@@ -1,34 +1,34 @@
 [
   {
-    "id": "u_citizen",
-    "name": "Thandi Mokoena",
-    "email": "citizen@civicproof.demo",
+    "id": "60000000-0000-4000-8000-000000000001",
+    "display_name": "Thandi Mokoena",
     "role": "citizen",
     "title": "Kgotso Valley resident",
-    "supplier_id": null
+    "supplier_ids": []
   },
   {
-    "id": "u_supplier",
-    "name": "Sipho Ndlovu",
-    "email": "supplier@civicproof.demo",
+    "id": "60000000-0000-4000-8000-000000000002",
+    "display_name": "Sipho Ndlovu",
     "role": "supplier",
-    "title": "Blue Basin Tanks (Pty) Ltd",
-    "supplier_id": "sup_bluebasin"
+    "title": "Demo supplier (3 fictional companies)",
+    "supplier_ids": [
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000003"
+    ]
   },
   {
-    "id": "u_municipality",
-    "name": "Lerato Khumalo",
-    "email": "municipality@civicproof.demo",
+    "id": "60000000-0000-4000-8000-000000000003",
+    "display_name": "Lerato Khumalo",
     "role": "municipality",
     "title": "Municipal finance officer",
-    "supplier_id": null
+    "supplier_ids": []
   },
   {
-    "id": "u_auditor",
-    "name": "Pieter van Wyk",
-    "email": "auditor@civicproof.demo",
+    "id": "60000000-0000-4000-8000-000000000004",
+    "display_name": "Pieter van Wyk",
     "role": "auditor",
     "title": "Independent auditor",
-    "supplier_id": null
+    "supplier_ids": []
   }
 ]

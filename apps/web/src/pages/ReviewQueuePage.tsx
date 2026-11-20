@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FlagChip } from '../components/FlagChip'
@@ -6,8 +6,10 @@ import { RequireRole } from '../components/RequireRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../lib/api'
 import { formatDate } from '../lib/dates'
+import { invoiceFlags } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
-import type { InvoiceStatus, InvoiceSummary } from '../types'
+import { useProjectCodes, useSuppliers } from '../lib/queries'
+import type { Invoice, InvoiceDetail, InvoiceStatus } from '../types'
 
 export function ReviewQueuePage() {
   return (
@@ -23,14 +25,31 @@ const TABS: { key: string; label: string; hint: string; statuses: InvoiceStatus[
   { key: 'hold', label: 'On hold', hint: 'Waiting on more checks. Approve or reject.', statuses: ['on_hold'] },
   { key: 'pay', label: 'Ready to pay', hint: 'Approved. Release the payment.', statuses: ['approved', 'payment_failed'] },
 ]
-const QUEUE_STATUSES = TABS.flatMap((t) => t.statuses).join(',')
+const QUEUE_STATUSES = TABS.flatMap((t) => t.statuses)
 
 function ReviewQueue() {
   const navigate = useNavigate()
+  // The API filters by one status only, so load all invoices and filter here.
   const queue = useQuery({
-    queryKey: ['invoices', 'queue'],
-    queryFn: () => api.get<InvoiceSummary[]>(`/invoices?status=${QUEUE_STATUSES}`),
+    queryKey: ['invoices', 'all'],
+    queryFn: () => api.get<Invoice[]>('/invoices'),
+    select: (rows) => rows.filter((i) => QUEUE_STATUSES.includes(i.status)),
   })
+  const { nameOf } = useSuppliers()
+  const { codeOf } = useProjectCodes()
+
+  // Flags live on the AI review in each invoice's details; load those for analysed invoices.
+  const analysedIds = (queue.data ?? []).filter((i) => i.status !== 'submitted').map((i) => i.id)
+  const details = useQueries({
+    queries: analysedIds.map((id) => ({
+      queryKey: ['invoice', id],
+      queryFn: () => api.get<InvoiceDetail>(`/invoices/${id}`),
+    })),
+  })
+  const flagsOf = (id: string) => {
+    const d = details[analysedIds.indexOf(id)]?.data
+    return d ? invoiceFlags(d) : null
+  }
 
   const all = queue.data ?? []
   const inTab = (key: string) => all.filter((i) => TABS.find((t) => t.key === key)!.statuses.includes(i.status))
@@ -123,21 +142,23 @@ function ReviewQueue() {
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-900">{inv.invoice_number}</p>
                       <p className="text-xs text-slate-500">
-                        {inv.project_id} · {formatDate(inv.invoice_date)}
+                        {codeOf(inv.project_id)} · {formatDate(inv.invoice_date)}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-slate-700">{inv.supplier_name}</td>
+                    <td className="px-6 py-4 text-slate-700">{nameOf(inv.supplier_id)}</td>
                     <td className="px-6 py-4 text-right font-semibold whitespace-nowrap text-slate-900 tabular-nums">
                       {formatMoney(inv.total_cents)}
                     </td>
                     <td className="px-6 py-4">
                       {inv.status === 'submitted' ? (
                         <span className="text-xs text-slate-400">Not analysed yet</span>
-                      ) : inv.flags.length === 0 ? (
+                      ) : flagsOf(inv.id) === null ? (
+                        <span className="text-xs text-slate-400">Loading…</span>
+                      ) : flagsOf(inv.id)!.length === 0 ? (
                         <span className="text-xs font-medium text-brand-700">No flags</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
-                          {inv.flags.map((f) => (
+                          {flagsOf(inv.id)!.map((f) => (
                             <FlagChip key={f} code={f} />
                           ))}
                         </div>

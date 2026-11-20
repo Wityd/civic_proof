@@ -1,14 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Money } from '../components/Money'
-import { api } from '../lib/api'
+import { useProjects } from '../lib/queries'
 import type { Project } from '../types'
 
 export function ProjectsPage() {
-  const projects = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => api.get<Project[]>('/projects'),
-  })
+  const projects = useProjects()
 
   return (
     <div className="space-y-6">
@@ -64,7 +60,7 @@ function ProjectCard({ project: p }: { project: Project }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{p.id}</p>
+          <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{p.code}</p>
           <h2 className="mt-1 text-lg font-bold text-slate-900 group-hover:text-brand-700">{p.name}</h2>
           <p className="text-sm text-slate-500">{p.location}</p>
         </div>

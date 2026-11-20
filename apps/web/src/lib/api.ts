@@ -1,4 +1,5 @@
 import { mockRequest } from '../mocks'
+import { ANON_KEY, getAccessToken } from './auth'
 import type { ApiResponse } from '../types'
 
 // Mocks are on when VITE_USE_MOCKS=true. They return the same shapes as the real API.
@@ -15,11 +16,6 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null
-export function setAuthToken(token: string | null) {
-  authToken = token
-}
-
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   let status: number
   let json: ApiResponse<T>
@@ -29,8 +25,11 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
     status = res.status
     json = res.body as ApiResponse<T>
   } else {
+    // The Supabase gateway wants the publishable key on every call; the user token only when signed in.
     const headers: Record<string, string> = {}
-    if (authToken) headers.Authorization = `Bearer ${authToken}`
+    if (ANON_KEY) headers.apikey = ANON_KEY
+    const token = await getAccessToken()
+    if (token) headers.Authorization = `Bearer ${token}`
     const init: RequestInit = { method, headers }
     if (body instanceof FormData) {
       init.body = body

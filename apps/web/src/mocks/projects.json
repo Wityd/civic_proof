@@ -1,12 +1,15 @@
 [
   {
-    "id": "CP001",
+    "id": "10000000-0000-4000-8000-000000000001",
+    "code": "CP001",
     "name": "Kgotso Valley Water Access",
-    "description": "Water tanks, pipes and installation for 4 village sites in Kgotso Valley.",
+    "description": "Fictional demo project: water tanks, pipes and installation at four village sites.",
     "location": "Kgotso Valley (fictional)",
-    "categories": ["water_storage", "pipes", "installation"],
     "budget_cents": 200000000,
-    "paid_cents": 11840000,
-    "balance_cents": 188160000
+    "permitted_categories": [
+      "water_storage",
+      "pipes",
+      "installation"
+    ]
   }
 ]
