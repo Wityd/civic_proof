@@ -9,7 +9,7 @@ P3's wallet update is applied: see [P3-INTEGRATION.md](P3-INTEGRATION.md).
 include `bsc`; operations include `register_milestone`. The table is currently
 populated for CP001 on Fuji with P3's verified wallet address. See
 [P3-INTEGRATION.md](P3-INTEGRATION.md) for the read-only chain checks. Runtime mode
-remains simulated until the live adapter is ready.
+is now Fuji; chain migrations, signing secrets and the Edge adapter are deployed.
 
 - 14 application tables in `public`, with UUID keys, foreign keys, indexes,
   integer-cent money fields and validation constraints.
@@ -68,13 +68,15 @@ Three fictional suppliers and three fictional benchmark prices are seeded:
 
 The exact Blue Basin and Summit dates are setup defaults for fictional demo data;
 P5 can revise them. All three suppliers are assigned to the supplier demo user
-to support the role-switching demo. Wallet addresses are null until P3 supplies
-test wallets. There are no invoice rows or pretend file paths in the seed.
+to support the role-switching demo. P3's receive-only test wallet addresses are
+applied from `supabase/deployments/demo_supplier_wallets.sql`. There are no invoice
+rows or pretend file paths in the seed.
 
 Reference SKUs: `TANK-10000L` at R14,500.00, `PIPE-HDPE-250-12` at R5,200.00,
 and `INSTALL-TANK` at R7,500.00. Every price source is labelled fictional.
 Simulated opening transactions must be filtered by `mode`; they do not represent
-Fuji funding. P3 will create and fund the real testnet wallet separately.
+Fuji funding. The separately verified Fuji setup ledger is applied from
+`supabase/deployments/cp001_fuji_ledger.sql`.
 
 ## Database guards and Edge Functions
 
@@ -87,8 +89,8 @@ remain nonunique so the AI rules can flag duplicate submissions.
 The Edge API is deployed and the simulated end-to-end flow is verified: JWT
 verification, role/ownership checks, file submission, deterministic analysis,
 atomic decisions and fund reservations, idempotent payment, delivery gates and
-public redaction. P3's live signing/receipt adapter and P4's PDF/LLM extraction
-remain integration work. Unconfigured live chain updates fail closed.
+public redaction. P3's live signing/receipt adapter is deployed and Fuji readiness
+passed. P4's PDF/LLM extraction remains integration work. See [CHAIN-MODE.md](CHAIN-MODE.md).
 
 ## Reproducible setup and verification
 
@@ -102,7 +104,8 @@ remain integration work. Unconfigured live chain updates fail closed.
 - `supabase/verify.sql`: transactional database safety checks with rolled-back
   fixtures. It creates no permanent test records.
 - `scripts/Test-SupabaseFirst.ps1`: verifies real HTTP, RLS, financial concurrency
-  and the simulated golden path. Test-project files and rows are cleaned up.
+  and the simulated golden path. Run only while runtime mode is simulated; it does
+  not switch the live mode. Test-project files and rows are cleaned up.
   `Test-CivicProofSupabase.ps1` forwards to this current test entrypoint.
 - `.local/setup-verification.json`: local verification results without credentials.
 
