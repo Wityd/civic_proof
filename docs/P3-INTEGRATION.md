@@ -53,8 +53,9 @@ helper hashes the UTF-8 UUID string with keccak256.
 
 `packages/shared/types.ts` exports `LedgerMode`, `TxResult`,
 `ProjectWalletRecord` and the updated `WalletService` interface, including
-`registerMilestone(milestoneId)`. These are types; API and wallet adapters are
-still to be implemented.
+`registerMilestone(milestoneId)`. The API now runs in Supabase Edge Functions;
+the simulated flow is implemented. P3's live adapter needs to be compatible with
+the Edge/Deno runtime. Express is no longer part of the architecture.
 
 The adapter resolves the project from the invoice or milestone record and looks
 up the wallet by `(project_id, active mode)`. Create through the factory, resolve

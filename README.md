@@ -1,5 +1,11 @@
 # CivicProof
 
+> **Current backend implementation:** Supabase Auth + Data API/RLS + Postgres RPCs
+> + the deployed `civicproof-api` Edge Function. Express has been replaced.
+> Read [the current backend reference](docs/BACKEND.md) and
+> [frontend integration contract](docs/FRONTEND-CONTRACT.md). The longer hackathon
+> plan below records the original architecture and is not the current setup guide.
+
 > **Follow the money. Prove the service.**
 
 CivicProof is a public-spending accountability platform built for the **BACISS 2026 hackathon**. It ring-fences a municipal project's budget in a dedicated wallet on a blockchain. An AI pipeline screens every supplier invoice before any money leaves, an authorised human decides, and every payment, hold and rejection is recorded where citizens can see it.
