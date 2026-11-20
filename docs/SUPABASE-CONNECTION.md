@@ -65,8 +65,10 @@ tools to an already running chat or make the token available to Work Cloud.
 
 The saved token was verified against the live Management API on 2026-11-20.
 The project is `CivicProof_Project`, status `ACTIVE_HEALTHY`, region `eu-west-1`.
-A read-only SQL inspection returned no public tables, no Storage buckets and
-zero Auth users. Database changes, demo users and Storage setup remain pending.
+The initial read-only SQL inspection returned an empty project. The full Supabase
+foundation was subsequently applied and verified; see
+[SUPABASE-SETUP.md](SUPABASE-SETUP.md) and
+[SUPABASE-VERIFICATION.md](SUPABASE-VERIFICATION.md).
 MCP tools were still not exposed in the current chat; direct Management API
 access works using the same local credential helper.
 
