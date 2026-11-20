@@ -93,7 +93,7 @@ flowchart TB
         W[Workflow<br/>states, approvals,<br/>idempotent payments]
         D[Delivery<br/>milestones, evidence,<br/>concerns, confirms]
         AI[AIService<br/>extract · rules · explain]
-        WS[WalletService<br/>simulated or fuji]
+        WS[WalletService<br/>simulated, fuji or bsc]
     end
 
     W --> DB[(Supabase<br/>Postgres + Storage)]
@@ -224,11 +224,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 GEMINI_API_KEY=
 OPENAI_API_KEY=
 AI_MODE=llm                     # llm | rules
-WALLET_MODE=simulated           # simulated | fuji
+WALLET_MODE=simulated           # simulated | fuji | bsc
 FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 DEPLOYER_PRIVATE_KEY=
 DEMOZAR_ADDRESS=
-WALLET_CONTRACT_ADDRESS=
+FACTORY_ADDRESS=                # factory for the selected chain
+BSC_TESTNET_RPC_URL=https://data-seed-prebsc-1-s1.bnbchain.org:8545
 DEMO_RESET_KEY=
 
 # ── web ───────────────────────────────────────────────
@@ -367,37 +368,45 @@ Upload ──► Extract ──► Retrieve ──► Validate ──► Assess 
 
 ## Wallet and smart contract
 
-`contracts/CivicProof.sol` contains two contracts:
+`contracts/contracts/` contains three contracts:
 
 - **`DemoZAR`**: a clearly labelled ERC-20 test token with 2 decimals.
-- **`CivicProofWallet`**: ring-fences each project's funds, with role-based access (`MUNICIPALITY`, `APPROVER`).
+- **`CivicProofFactory`**: deploys a separate wallet for each project.
+- **`ProjectWallet`**: ring-fences one project's funds, with municipality and approver roles.
+
+The same contracts support Avalanche Fuji and BNB testnet; the API uses one at a
+time. Per-project addresses belong in `project_wallets(project_id, mode,
+wallet_address)`. See [P2/P3 integration](docs/P3-INTEGRATION.md) for the IDs,
+configuration and updated shared types.
 
 | Function | Role | Guard |
 | --- | --- | --- |
 | `createProject(projectId, allocated)` | MUNICIPALITY | Not already created; allocation > 0 |
-| `fundProject(projectId, amount)` | MUNICIPALITY | Can't fund beyond the allocation; caller approves dZAR first |
-| `submitPaymentRequest(requestId, projectId, supplier, amount, invoiceHash, milestoneId)` | MUNICIPALITY | One request per invoice; `milestoneId = 0x0` means not delivery-dependent |
+| `fundProject(amount)` on ProjectWallet | MUNICIPALITY | Can't fund beyond the allocation; caller approves dZAR first |
+| `submitPaymentRequest(requestId, supplier, amount, invoiceHash, milestoneId)` on ProjectWallet | MUNICIPALITY | One request per invoice; a linked milestone must already be registered |
 | `approvePayment(requestId)` | APPROVER | Must be pending; amount ≤ balance minus already-approved amounts |
 | `rejectPayment(requestId)` | APPROVER | Must be pending |
+| `registerMilestone(milestoneId)` | MUNICIPALITY | Registers milestone before a dependent invoice can be submitted |
 | `verifyMilestone(milestoneId)` | APPROVER | Records official verification |
 | `releasePayment(requestId)` | APPROVER | Must be approved; any linked milestone must be verified; status flips **before** the transfer, so it pays once |
-| `getBalance(projectId)` | view | Balance and available funds (balance minus approved-but-unpaid) |
+| `getBalance()` on ProjectWallet | view | Balance and available funds (balance minus approved-but-unpaid) |
 | `getTransaction(requestId)` | view | The full request with its status |
 
 **Safety tests (Hardhat):** a double release reverts, an outsider's approval reverts, overspending reverts, a release before milestone verification reverts, and the full flow ends at R1,817,600.00.
 
-### One wallet interface, two implementations
+### One wallet interface, three modes
 
 ```ts
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
 export interface TxResult {
-  mode: 'simulated' | 'fuji'; txHash: string; status: TxStatus;
+  mode: 'simulated' | 'fuji' | 'bsc'; txHash: string; status: TxStatus;
   blockNumber?: number; error?: string;
 }
 
 export interface WalletService {
   createProject(projectId: string, allocatedCents: bigint): Promise<TxResult>;
   fundProject(projectId: string, amountCents: bigint): Promise<TxResult>;
+  registerMilestone(milestoneId: string): Promise<TxResult>;
   submitPaymentRequest(invoiceId: string, projectId: string, supplierAddress: string,
                        amountCents: bigint, documentSha256: string,
                        milestoneId?: string): Promise<TxResult>;
@@ -410,13 +419,17 @@ export interface WalletService {
 ```
 
 - **`SimulatedWalletService`** is backed by the database and applies the same rules as the contract. Its `tx_hash` is `sim_<uuid>` and it confirms instantly. In the UI it is always labelled **"Simulated ledger"**.
-- **`FujiWalletService`** uses ethers v6, with keys = `keccak256(toUtf8Bytes(uuid))`. It waits for 1 confirmation and maps reverts to API error codes.
+- **Chain wallet adapters** use ethers v6 and keys = `keccak256(toUtf8Bytes(uuid))`.
+  They resolve the project's wallet on the configured chain, wait for confirmation
+  and map reverts to API errors. Milestone registration precedes linked invoices;
+  hold stays off-chain. Runtime adapters remain P3/P2 integration work.
 
 ### Network
 
 | Setting | Value |
 | --- | --- |
 | Network | Avalanche Fuji C-Chain |
+| Alternate network | BNB Smart Chain testnet, chain ID `97`, explorer [testnet.bscscan.com](https://testnet.bscscan.com) |
 | Chain ID | `43113` |
 | RPC | `https://api.avax-test.network/ext/bc/C/rpc` |
 | Gas | Test AVAX |
@@ -460,7 +473,7 @@ All mutations require authentication, a role check and zod validation. Public re
 
 ### Data model
 
-13 tables: `projects`, `suppliers`, `milestones`, `invoices`, `invoice_items`, `ai_reviews`, `approvals`, `transactions`, `evidence`, `verifications`, `concerns`, `users`, `reference_prices`. They are all linked through a shared `project_id`.
+14 tables: `projects`, `project_wallets`, `suppliers`, `milestones`, `invoices`, `invoice_items`, `ai_reviews`, `approvals`, `transactions`, `evidence`, `verifications`, `concerns`, `users`, `reference_prices`. Project-scoped rows link to projects directly or through their parent; users, suppliers and reference prices are shared.
 
 ---
 

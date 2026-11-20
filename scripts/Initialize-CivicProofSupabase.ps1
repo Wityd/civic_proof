@@ -29,7 +29,7 @@ try {
     if ($tables.Count -eq 0) {
         $null = Invoke-ProjectSql (Get-Content -LiteralPath (Join-Path $repoRoot 'supabase/schema.sql') -Raw)
     } else {
-        $expectedTables = @('ai_reviews','approvals','concerns','evidence','invoice_items','invoices','milestones','projects','reference_prices','suppliers','transactions','users','verifications')
+        $expectedTables = @('ai_reviews','approvals','concerns','evidence','invoice_items','invoices','milestones','project_wallets','projects','reference_prices','suppliers','transactions','users','verifications')
         if (@(Compare-Object $expectedTables @($tables.tablename)).Count -ne 0) {
             throw 'Unexpected schema. Inspect before continuing; no tables were replaced.'
         }

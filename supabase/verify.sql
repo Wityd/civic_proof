@@ -8,7 +8,7 @@ declare supplier_user uuid; municipal_user uuid; project_id uuid := '10000000-00
 begin
   select id into strict supplier_user from public.users where role='supplier';
   select id into strict municipal_user from public.users where role='municipality';
-  if (select count(*) from pg_tables where schemaname='public') <> 13 then raise exception 'Expected 13 application tables'; end if;
+  if (select count(*) from pg_tables where schemaname='public') <> 14 then raise exception 'Expected 14 application tables'; end if;
   if exists (select 1 from pg_tables where schemaname='public' and not rowsecurity) then raise exception 'RLS missing'; end if;
   if exists (select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and
     (has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE') or
@@ -29,6 +29,38 @@ begin
 
   insert into public.projects (id,code,name,budget_cents,permitted_categories,created_by)
     values(other_project,'VERIFY-'||other_project::text,'Rollback-only project',1000,array['pipes'],municipal_user);
+  insert into public.project_wallets(project_id,mode,wallet_address) values
+    (project_id,'fuji','0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+    (project_id,'bsc','0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+  begin
+    insert into public.project_wallets(project_id,mode,wallet_address)
+      values(project_id,'fuji','0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    raise exception 'Test failed: second wallet for project/chain accepted';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.project_wallets(project_id,mode,wallet_address)
+      values(other_project,'fuji','0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+    raise exception 'Test failed: chain wallet reused across projects';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.project_wallets(project_id,mode,wallet_address)
+      values(other_project,'bsc','0x0000000000000000000000000000000000000000');
+    raise exception 'Test failed: zero wallet address accepted';
+  exception when check_violation then null; end;
+  begin
+    insert into public.transactions(project_id,operation,mode,status)
+      values(project_id,'register_milestone','bsc','pending');
+    raise exception 'Test failed: milestone registration without milestone accepted';
+  exception when check_violation then null; end;
+  insert into public.transactions(project_id,milestone_id,operation,mode,status)
+    values(project_id,'30000000-0000-4000-8000-000000000001','register_milestone','bsc','pending');
+  begin
+    insert into public.transactions(project_id,milestone_id,operation,mode,status,tx_hash,confirmed_at)
+      values(project_id,'30000000-0000-4000-8000-000000000001','register_milestone','bsc','confirmed','verify_bsc_no_block',now());
+    raise exception 'Test failed: confirmed BSC operation without block accepted';
+  exception when check_violation then null; end;
+  insert into public.transactions(project_id,milestone_id,operation,mode,status,tx_hash,confirmed_at,block_number)
+    values(project_id,'30000000-0000-4000-8000-000000000001','register_milestone','bsc','confirmed','verify_bsc_with_block',now(),1);
   begin
     update public.invoices set project_id=other_project,milestone_id='30000000-0000-4000-8000-000000000001' where id=invoice_two;
     raise exception 'Test failed: cross-project milestone accepted';
@@ -38,7 +70,7 @@ begin
     values(release_id,project_id,invoice_one,'release',100,'simulated','pending');
   begin
     insert into public.transactions (project_id,invoice_id,operation,amount_cents,mode,status)
-      values(project_id,invoice_one,'release',100,'simulated','pending');
+      values(project_id,invoice_one,'release',100,'bsc','pending');
     raise exception 'Test failed: duplicate live release accepted';
   exception when unique_violation then null; end;
   update public.transactions set status='failed' where id=release_id;
@@ -76,5 +108,5 @@ begin
   end;
 end;
 $$;
-select 'passed: RLS, grants, duplicate invoice acceptance, milestone isolation, release uniqueness, state transitions, override reasons and self approval' as verification;
+select 'passed: RLS, grants, multichain wallets, BSC confirmation, milestone registration, duplicate invoices, milestone isolation, cross-mode release uniqueness, state transitions, override reasons and self approval' as verification;
 rollback;
