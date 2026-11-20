@@ -1,10 +1,12 @@
 // Fake API used when VITE_USE_MOCKS=true. Same paths and shapes as the real API.
+import { INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
 import { getViewAsId } from '../lib/viewAs'
 import type {
   ApiResponse,
   InvoiceDetail,
   InvoiceSummary,
   Milestone,
+  NewInvoicePayload,
   Project,
   ProjectDetail,
   Supplier,
@@ -106,10 +108,76 @@ function handleGet(path: string, query: URLSearchParams): MockResult {
   return notFound(`Mock for GET ${path}`)
 }
 
-export async function mockRequest(method: 'GET' | 'POST', fullPath: string): Promise<MockResult> {
+function createInvoice(body: unknown): MockResult {
+  const user = currentUser()
+  if (!user) return fail(401, 'UNAUTHORIZED', 'Sign in to submit an invoice')
+  if (user.role !== 'supplier' || !user.supplier_id) return fail(403, 'FORBIDDEN', 'Only suppliers can submit invoices')
+  if (!(body instanceof FormData)) return fail(400, 'BAD_REQUEST', 'Expected multipart form data')
+
+  const file = body.get(INVOICE_UPLOAD_PARTS.file)
+  const raw = body.get(INVOICE_UPLOAD_PARTS.data)
+  if (!(file instanceof File)) return fail(400, 'BAD_REQUEST', 'Invoice PDF is missing')
+  if (typeof raw !== 'string') return fail(400, 'BAD_REQUEST', 'Invoice data is missing')
+
+  let payload: NewInvoicePayload
+  try {
+    payload = JSON.parse(raw)
+  } catch {
+    return fail(400, 'BAD_REQUEST', 'Invoice data is not valid JSON')
+  }
+  if (!projects.some((p) => p.id === payload.project_id)) return notFound('Project')
+
+  const supplierId = user.supplier_id
+  if (invoices.some((i) => i.supplier_id === supplierId && i.invoice_number === payload.invoice_number)) {
+    return fail(409, 'DUPLICATE_INVOICE', `You already submitted invoice ${payload.invoice_number}`)
+  }
+
+  const id = `inv_${String(invoices.length + 1).padStart(3, '0')}`
+  const inv: (typeof invoices)[number] = {
+    id,
+    project_id: payload.project_id,
+    supplier_id: supplierId,
+    supplier_name: suppliers.find((s) => s.id === supplierId)?.name ?? 'Unknown supplier',
+    invoice_number: payload.invoice_number,
+    invoice_date: payload.invoice_date,
+    total_cents: payload.total_cents,
+    status: 'submitted',
+    flags: [],
+    milestone_id: payload.milestone_id,
+    tx_hash: null,
+    tx_mode: null,
+    line_items: payload.line_items.map((l) => ({ ...l, reference_sku: null })),
+    ai_review: null,
+    approvals: [],
+  }
+  invoices.push(inv)
+
+  // Submitting anchors the document hash: a recorded event, no money moves.
+  const ledger = (transactions[payload.project_id] ??= [])
+  ledger.unshift({
+    id: `tx_${Date.now()}`,
+    project_id: payload.project_id,
+    invoice_id: id,
+    kind: 'invoice_submitted',
+    moves_money: false,
+    amount_cents: null,
+    tx_hash: `sim_${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+    mode: 'simulated',
+    created_at: new Date().toISOString(),
+  })
+
+  return { status: 201, body: { data: toSummary(inv) } }
+}
+
+export async function mockRequest(
+  method: 'GET' | 'POST',
+  fullPath: string,
+  body?: unknown,
+): Promise<MockResult> {
   await new Promise((r) => setTimeout(r, 300)) // feel like a real network call
   const [path, qs = ''] = fullPath.split('?')
   if (method === 'GET') return handleGet(path, new URLSearchParams(qs))
-  // POST mocks get added as each page needs them.
+  if (path === '/invoices') return createInvoice(body)
+  // More POST mocks get added as each page needs them.
   return fail(501, 'NOT_MOCKED', `No mock yet for ${method} ${path}`)
 }

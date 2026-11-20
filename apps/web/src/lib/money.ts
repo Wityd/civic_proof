@@ -15,3 +15,11 @@ export function formatMoney(cents: number): string {
   const { rands, cents: c } = splitMoney(cents)
   return rands + c
 }
+
+// "12000", "12,000.00", "R12 000.5" → cents. Returns null if it isn't a valid amount.
+export function parseRandsToCents(input: string): number | null {
+  const clean = input.replace(/[R\s,]/gi, '')
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null
+  const [whole, frac = ''] = clean.split('.')
+  return Number(whole) * 100 + Number(frac.padEnd(2, '0'))
+}
