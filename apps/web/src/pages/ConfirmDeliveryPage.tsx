@@ -67,7 +67,7 @@ function ConfirmDelivery() {
       <div className="mx-auto max-w-xl rounded-card bg-white p-8 shadow-card">
         <p className="font-semibold text-red-700">{error ? 'Could not load the delivery' : 'Delivery not found'}</p>
         <p className="mt-1 text-sm text-slate-500">{error?.message ?? `There is no milestone "${milestoneId}".`}</p>
-        <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-700">
+        <Link to="/projects" className="mt-4 inline-block text-sm font-medium text-brand-700">
           ← All projects
         </Link>
       </div>
