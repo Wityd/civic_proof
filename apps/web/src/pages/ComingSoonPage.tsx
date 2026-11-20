@@ -8,7 +8,7 @@ export function ComingSoonPage() {
       <p className="mt-1 text-sm text-slate-500">
         <code>{pathname}</code> is coming soon.
       </p>
-      <Link to="/" className="mt-4 inline-block rounded-full bg-brand-600 px-5 py-2 text-sm font-medium text-white">
+      <Link to="/projects" className="mt-4 inline-block rounded-full bg-brand-600 px-5 py-2 text-sm font-medium text-white">
         Back to projects
       </Link>
     </div>

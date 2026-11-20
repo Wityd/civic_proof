@@ -296,7 +296,7 @@ function Card({ children, className = '' }: { children: ReactNode; className?: s
 
 function BackLink() {
   return (
-    <Link to="/" className="text-sm font-medium text-slate-500 hover:text-brand-700">
+    <Link to="/projects" className="text-sm font-medium text-slate-500 hover:text-brand-700">
       ← All projects
     </Link>
   )
