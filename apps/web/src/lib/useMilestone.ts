@@ -1,32 +1,18 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
-import type { Milestone, Project, ProjectDetail } from '../types'
-import { api } from './api'
+import type { Milestone, Project } from '../types'
+import { useProjects } from './queries'
 
 // There is no GET /milestones/:id, so look the milestone up through the projects.
-// TODO(P2): replace with GET /milestones/:id if the API adds it.
+// Needs `milestones` on each project (REQUESTED from P2).
 export function useMilestone(milestoneId: string) {
-  const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.get<Project[]>('/projects') })
-  const details = useQueries({
-    queries: (projects.data ?? []).map((p) => ({
-      queryKey: ['project', p.id],
-      queryFn: () => api.get<ProjectDetail>(`/projects/${p.id}`),
-    })),
-  })
-
+  const projects = useProjects()
   let milestone: Milestone | undefined
   let project: Project | undefined
-  for (const d of details) {
-    const found = d.data?.milestones.find((m) => m.id === milestoneId)
+  for (const p of projects.data ?? []) {
+    const found = p.milestones?.find((m) => m.id === milestoneId)
     if (found) {
       milestone = found
-      project = d.data!.project
+      project = p
     }
   }
-
-  return {
-    milestone,
-    project,
-    isPending: projects.isPending || details.some((d) => d.isPending),
-    error: projects.error ?? details.find((d) => d.error)?.error ?? null,
-  }
+  return { milestone, project, isPending: projects.isPending, error: projects.error }
 }

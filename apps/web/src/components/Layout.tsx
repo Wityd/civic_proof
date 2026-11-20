@@ -8,8 +8,10 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <div className="bg-slate-800 px-4 py-1 text-center text-xs text-slate-200">
         Fictional demo data: all names, places and amounts are made up.
-        {USE_MOCKS && (
+        {USE_MOCKS ? (
           <span className="ml-2 rounded-full bg-amber-400 px-2 text-slate-900">Mock API · {MOCK_SCENARIO}</span>
+        ) : (
+          <span className="ml-2 rounded-full bg-emerald-400 px-2 text-slate-900">Live API</span>
         )}
       </div>
       <Header />

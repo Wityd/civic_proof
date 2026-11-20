@@ -4,8 +4,11 @@ import { FlagChip } from '../components/FlagChip'
 import { RequireRole } from '../components/RequireRole'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/dates'
+import { useViewAs } from '../context/ViewAsContext'
+import { approverName, latestReview } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
-import type { Approval, InvoiceDetail, InvoiceSummary, Recommendation } from '../types'
+import { useProjectCodes, useSuppliers } from '../lib/queries'
+import type { Approval, Invoice, InvoiceDetail, Recommendation } from '../types'
 
 export function AuditPage() {
   return (
@@ -38,8 +41,14 @@ function AuditLog() {
   // TODO(P2): swap for a single GET /audit if the API adds one.
   const list = useQuery({
     queryKey: ['invoices', 'all'],
-    queryFn: () => api.get<InvoiceSummary[]>('/invoices'),
+    queryFn: () => api.get<Invoice[]>('/invoices'),
   })
+  const { nameOf } = useSuppliers()
+  const { codeOf } = useProjectCodes()
+  const { users } = useViewAs()
+  // The review the officer saw when deciding (falls back to the newest one).
+  const reviewFor = (a: Approval, inv: InvoiceDetail) =>
+    inv.ai_reviews.find((r) => r.id === a.ai_review_id) ?? latestReview(inv)
   const details = useQueries({
     queries: (list.data ?? []).map((inv) => ({
       queryKey: ['invoice', inv.id],
@@ -133,18 +142,18 @@ function AuditLog() {
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-900">{inv.invoice_number}</p>
                       <p className="text-xs text-slate-500">
-                        {inv.supplier_name} · {inv.project_id}
+                        {nameOf(inv.supplier_id)} · {codeOf(inv.project_id)}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right font-semibold whitespace-nowrap tabular-nums">
                       {formatMoney(inv.total_cents)}
                     </td>
                     <td className="px-6 py-4">
-                      {inv.ai_review ? (
+                      {reviewFor(a, inv) ? (
                         <>
-                          <p className="font-medium text-slate-800">{REC[inv.ai_review.recommendation]}</p>
+                          <p className="font-medium text-slate-800">{REC[reviewFor(a, inv)!.recommendation]}</p>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {inv.ai_review.flags.map((f) => (
+                            {reviewFor(a, inv)!.flags.map((f) => (
                               <FlagChip key={f} code={f} />
                             ))}
                           </div>
@@ -159,7 +168,7 @@ function AuditLog() {
                       >
                         {DECISION[a.decision].label}
                       </span>
-                      <p className="mt-1 text-xs text-slate-500">by {a.decided_by_name}</p>
+                      <p className="mt-1 text-xs text-slate-500">by {approverName(a, users)}</p>
                       {a.overrode_ai && (
                         <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                           AI overridden

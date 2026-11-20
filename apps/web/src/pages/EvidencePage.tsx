@@ -43,7 +43,7 @@ function EvidenceForm() {
     upload.reset()
     setPhotoError('')
     if (f && !f.type.startsWith('image/')) {
-      setPhotoError('Please choose a photo (JPG or PNG).')
+      setPhotoError('Please choose a photo (JPG, PNG or WebP).')
       return setPhoto(null)
     }
     if (f && f.size > MAX_PHOTO_BYTES) {
@@ -58,7 +58,7 @@ function EvidenceForm() {
     if (!photo) return setPhotoError('Choose a photo of the delivery first.')
     const form = new FormData()
     form.append(EVIDENCE_UPLOAD_PARTS.file, photo)
-    form.append(EVIDENCE_UPLOAD_PARTS.data, JSON.stringify({ note: note.trim() || null }))
+    if (note.trim()) form.append(EVIDENCE_UPLOAD_PARTS.caption, note.trim())
     upload.mutate(form)
   }
 
@@ -84,10 +84,10 @@ function EvidenceForm() {
         </div>
         <h1 className="mt-4 text-xl font-bold text-slate-900">Evidence submitted</h1>
         <p className="mt-2 text-sm text-slate-500">
-          The photo for <b>{milestone.id}</b> (“{milestone.title}”) is recorded. Next, the municipality and residents
+          The photo for <b>{milestone.code}</b> (“{milestone.title}”) is recorded. Next, the municipality and residents
           confirm the delivery.
         </p>
-        <p className="mt-3 font-mono text-xs break-all text-slate-400">Photo fingerprint: {upload.data.photo_hash}</p>
+        <p className="mt-3 font-mono text-xs break-all text-slate-400">Photo fingerprint: {upload.data.document_sha256}</p>
         <Link
           to="/supplier/invoices"
           className="mt-6 inline-block rounded-full bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
@@ -106,7 +106,7 @@ function EvidenceForm() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Upload delivery evidence</h1>
         <p className="mt-1 text-slate-500">
-          {project?.name} · <b>{milestone.id}</b>: {milestone.title}
+          {project?.name} · <b>{milestone.code}</b>: {milestone.title}
         </p>
       </div>
 
@@ -117,11 +117,6 @@ function EvidenceForm() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-6 rounded-card bg-white p-5 shadow-card sm:p-6">
-          {milestone.status === 'evidence_submitted' && (
-            <p className="rounded-2xl bg-sky-50 p-3 text-sm text-sky-800">
-              Evidence was already submitted for this milestone. You can add another photo.
-            </p>
-          )}
 
           <div>
             <p className="text-sm font-medium text-slate-700">Photo of the delivery</p>
@@ -170,8 +165,9 @@ function EvidenceForm() {
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
               <p className="font-semibold text-red-800">Duplicate evidence</p>
               <p className="mt-1 text-sm text-red-700">
-                This exact photo was already submitted before. Reused photos cannot prove a new delivery. Please take
-                a new photo at the site.
+                This exact photo was already submitted before. It was saved but flagged for the municipality and the
+                auditor, because a reused photo cannot prove a new delivery. Please upload a new photo taken at the
+                site.
               </p>
             </div>
           )}
