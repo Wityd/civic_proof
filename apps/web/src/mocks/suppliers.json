@@ -1,0 +1,23 @@
+[
+  {
+    "id": "sup_bluebasin",
+    "name": "Blue Basin Tanks (Pty) Ltd",
+    "registration_no": "2014/203381/07",
+    "registered_on": "2014-03-11",
+    "city": "Polokwane"
+  },
+  {
+    "id": "sup_pipeworks",
+    "name": "Pipeworks Direct CC",
+    "registration_no": "2026/771204/23",
+    "registered_on": "2026-10-28",
+    "city": "Johannesburg"
+  },
+  {
+    "id": "sup_summit",
+    "name": "Summit Motors (Pty) Ltd",
+    "registration_no": "2009/118842/07",
+    "registered_on": "2009-07-02",
+    "city": "Pretoria"
+  }
+]
