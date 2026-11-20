@@ -9,23 +9,22 @@ Supabase first; application code follows once the hosted setup has been verified
 | Target project | `crshjvjrgnnypxbpjmob` |
 | Project URL | https://crshjvjrgnnypxbpjmob.supabase.co |
 | Git branch | `mzoo` |
-| Hosted schema inspection | Verified 2026-11-20 via Management API: project `CivicProof_Project`, `ACTIVE_HEALTHY`; no public tables, no buckets, zero Auth users |
-| Database tables, constraints and indexes | Proposed below; not applied or verified |
-| Private storage buckets | Pending |
-| Demo Auth users and application roles | Pending |
-| Seed data | Pending |
-| Live verification | Pending |
+| Hosted schema inspection | Verified 2026-11-20 via Management API: project `CivicProof_Project`, `ACTIVE_HEALTHY` |
+| Database tables, constraints and indexes | Applied: 13 tables with RLS, indexed relationships and workflow constraints |
+| Private storage buckets | Created and verified: `invoices`, `evidence`, 10 MiB limits and restricted MIME types |
+| Demo Auth users and application roles | Created: citizen, supplier, municipality, auditor; all four logins and trusted roles verified |
+| Seed data | CP001, three suppliers, M1, three reference prices and simulated opening ledger seeded |
+| Live verification | Passed: Auth, access denials, private file operations, database guards; see setup and verification documents |
 | Express API and shared TypeScript types | Deferred until Supabase is ready |
 
 Token-based local connection configuration and private entry instructions are in
 [SUPABASE-CONNECTION.md](SUPABASE-CONNECTION.md). Configuration alone does not
 mean live authentication or database setup has completed.
 
-This document describes the intended backend. It does not claim that the database,
-API, wallet integration or demo accounts are already working. Before applying SQL,
-inspect the existing database, policies, buckets and Auth users; preserve unrelated
-objects and data. The build plan mentions a starter schema, but that file is not
-present in the repository as inspected. The field design below is a P2 proposal.
+The Supabase foundation is configured and verified. The Express API and wallet
+integration remain to be built. The applied schema is in `supabase/schema.sql`;
+read [SUPABASE-SETUP.md](SUPABASE-SETUP.md) for demo login access and
+[SUPABASE-VERIFICATION.md](SUPABASE-VERIFICATION.md) for the checks and limits.
 
 ## Architecture and ownership
 
@@ -60,7 +59,7 @@ checks and explanations. P5 owns fictional demo content and the delivery module.
 - JSON responses use snake_case fields. API money must be within JavaScript's
   safe integer range before conversion to JSON numbers; reject unsafe input.
 
-## Proposed tables
+## Applied tables
 
 All tables below also have `created_at timestamptz`. Mutable records have
 `updated_at timestamptz`, maintained consistently by the database or API.
@@ -225,19 +224,19 @@ role; it never trusts a client-supplied role or a stale metadata role.
 
 ## Ready-for-code checklist
 
-- [ ] Inspect and confirm the target project's existing schema and Auth settings.
-- [ ] Apply the agreed schema with all foreign keys, constraints and indexes.
-- [ ] Confirm every application table has RLS and browser roles cannot read/write.
-- [ ] Verify backend service-role access without exposing the secret in logs.
-- [ ] Create and verify both private buckets and enforce file limits.
-- [ ] Create four demo Auth users and verify their `public.users` roles.
-- [ ] Seed CP001, suppliers, M1 and the reference catalogue with P5's agreed data.
-- [ ] Run negative access checks with publishable and signed-in user clients.
-- [ ] Verify duplicate invoice data is accepted and duplicate live releases fail.
-- [ ] Verify invoice/milestone cross-project links fail.
-- [ ] Run Supabase advisors and resolve actionable security findings.
-- [ ] Record applied changes, verification results and any remaining gaps here.
-- [ ] Export the applied schema into version-controlled SQL before API development.
+- [x] Inspect and confirm the target project's existing schema and Auth settings.
+- [x] Apply the documented schema with foreign keys, constraints and indexes.
+- [x] Confirm every application table has RLS and browser roles cannot read/write.
+- [x] Verify backend service-role access without exposing the secret in logs.
+- [x] Create and verify both private buckets and configured file limits.
+- [x] Create four demo Auth users and verify their `public.users` roles.
+- [x] Seed CP001, suppliers, M1 and reference prices with documented fictional defaults.
+- [x] Run negative access checks with anonymous and signed-in user clients.
+- [x] Verify duplicate invoice data is accepted and duplicate live release records fail.
+- [x] Verify invoice/milestone cross-project links fail.
+- [x] Run Supabase advisors; fix privileged browser RPC access and document the paid-plan warning.
+- [x] Record applied changes, verification results and remaining API work.
+- [x] Save the applied canonical schema and repeatable seed in version-controlled SQL.
 
 The expected demo balance is R1,881,600.00 after the R118,400.00 tank payment,
 and R1,817,600.00 after the R64,000.00 installation payment. The R240,000.00
