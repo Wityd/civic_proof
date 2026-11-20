@@ -5,10 +5,13 @@ import { AiFindingsCard } from '../components/ai/AiFindingsCard'
 import { RequireRole } from '../components/RequireRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { TxHash } from '../components/TxHash'
-import { api, ApiError, USE_MOCKS } from '../lib/api'
+import { useViewAs } from '../context/ViewAsContext'
+import { api, ApiError } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
+import { approverName, invoiceFlags, latestReview, movesMoney, releaseTx, TX_LABEL } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
-import type { Approval, InvoiceDetail, Milestone, ProjectDetail, Supplier } from '../types'
+import { useProject } from '../lib/queries'
+import type { Approval, DecisionResult, InvoiceDetail, Milestone, Supplier } from '../types'
 
 export function ReviewInvoicePage() {
   return (
@@ -19,6 +22,8 @@ export function ReviewInvoicePage() {
 }
 
 const POLL_MS = 1500
+// While a chain payment is still confirming, ask the API to re-check it this often.
+const RECHECK_MS = 5000
 
 function ReviewInvoice() {
   const { id = '' } = useParams()
@@ -39,13 +44,9 @@ function ReviewInvoice() {
     queryFn: () => api.get<Supplier>(`/suppliers/${inv!.supplier_id}`),
     enabled: !!inv,
   })
-  const project = useQuery({
-    queryKey: ['project', inv?.project_id],
-    queryFn: () => api.get<ProjectDetail>(`/projects/${inv!.project_id}`),
-    enabled: !!inv,
-  })
+  const project = useProject(inv?.project_id)
   const milestone = inv?.milestone_id
-    ? project.data?.milestones.find((m) => m.id === inv.milestone_id)
+    ? project.data?.milestones?.find((m) => m.id === inv.milestone_id)
     : undefined
 
   // When polling sees the payment finish, refresh the other pages' data too.
@@ -79,20 +80,21 @@ function ReviewInvoice() {
             <StatusBadge status={inv.status} />
           </div>
           <p className="mt-1 text-slate-600">
-            {inv.supplier_name}
+            {supplier.data?.name ?? 'Supplier'}
             {supplier.data && (
               <span className="text-slate-400">
                 {' '}
                 · Reg. {supplier.data.registration_no} · registered {formatDate(supplier.data.registered_on)}
+                {!supplier.data.verified && <span className="font-semibold text-amber-700"> · Not verified</span>}
               </span>
             )}
           </p>
           <p className="text-sm text-slate-500">
             <Link to={`/projects/${inv.project_id}`} className="hover:text-brand-700">
-              {inv.project_id}
+              {project.data?.code ?? 'Project'}
             </Link>{' '}
             · Invoice date {formatDate(inv.invoice_date)}
-            {inv.milestone_id && <> · Linked to milestone {inv.milestone_id}</>}
+            {inv.milestone_id && <> · Linked to milestone {milestone?.code ?? ''}</>}
           </p>
         </div>
         <div className="text-right">
@@ -105,8 +107,8 @@ function ReviewInvoice() {
         {/* Left: what was invoiced and what the AI found */}
         <div className="min-w-0 space-y-6">
           <LineItems inv={inv} />
-          {inv.ai_review ? (
-            <AiFindingsCard review={inv.ai_review} />
+          {latestReview(inv) ? (
+            <AiFindingsCard review={latestReview(inv)!} />
           ) : (
             <RunAnalysis invoiceId={inv.id} canRun={inv.status === 'submitted'} onDone={refreshAll} />
           )}
@@ -158,7 +160,7 @@ function LineItems({ inv }: { inv: InvoiceDetail }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {inv.line_items.map((l, i) => (
+            {[...inv.items].sort((a, b) => a.line_index - b.line_index).map((l, i) => (
               <tr key={i}>
                 <td className="px-6 py-4">
                   <p className="font-medium text-slate-900">{l.description}</p>
@@ -227,12 +229,13 @@ function DecisionPanel({ inv, onDone }: { inv: InvoiceDetail; onDone: () => void
   const [showReasonError, setShowReasonError] = useState(false)
   const [confirmOverride, setConfirmOverride] = useState(false)
 
-  const reasonRequired = inv.flags.length > 0
+  const flags = invoiceFlags(inv)
+  const reasonRequired = flags.length > 0
   const reasonMissing = reasonRequired && !reason.trim()
 
   const decide = useMutation({
     mutationFn: (decision: Approval['decision']) =>
-      api.post<Approval>(`/invoices/${inv.id}/${decision}`, { reason: reason.trim() || null }),
+      api.post<DecisionResult>(`/invoices/${inv.id}/${decision}`, { reason: reason.trim() || null }),
     onSuccess: () => {
       setReason('')
       setConfirmOverride(false)
@@ -246,7 +249,7 @@ function DecisionPanel({ inv, onDone }: { inv: InvoiceDetail; onDone: () => void
       return
     }
     // Approving against AI flags needs a second click, because it is recorded as an override.
-    if (decision === 'approve' && inv.flags.length > 0 && !confirmOverride) {
+    if (decision === 'approve' && flags.length > 0 && !confirmOverride) {
       setConfirmOverride(true)
       return
     }
@@ -344,8 +347,24 @@ function PaymentPanel({
     onSuccess: onDone,
   })
 
+  const payment = releaseTx(inv.transactions, inv.id)
   const blocked = milestone && milestone.status !== 'verified'
   const blockedError = pay.error instanceof ApiError && pay.error.code === 'MILESTONE_NOT_VERIFIED'
+
+  // A slow chain can leave a payment pending after the request returns. Re-reading the
+  // invoice alone never settles it, so re-ask the API: for a payment that already has a
+  // hash it only checks the receipt and records the result. It never sends twice.
+  const recheck = useMutation({
+    mutationFn: () => api.post(`/payments/${inv.id}/execute`),
+    onSuccess: onDone,
+  })
+  const { mutate: recheckNow, isPending: rechecking } = recheck
+  useEffect(() => {
+    // One check at a time: the next one is scheduled only after the previous finished.
+    if (inv.status !== 'payment_pending' || rechecking || pay.isPending) return
+    const timer = setTimeout(() => recheckNow(), RECHECK_MS)
+    return () => clearTimeout(timer)
+  }, [inv.status, rechecking, pay.isPending, recheckNow])
 
   if (inv.status === 'paid') {
     return (
@@ -354,7 +373,7 @@ function PaymentPanel({
         <p className="mt-1 text-2xl font-bold tabular-nums">{formatMoney(inv.total_cents)}</p>
         <p className="mt-1 text-sm text-slate-500">Released from the project wallet.</p>
         <div className="mt-3">
-          <TxHash hash={inv.tx_hash} mode={inv.tx_mode} />
+          <TxHash hash={payment?.tx_hash ?? null} mode={payment?.mode ?? null} />
         </div>
       </Card>
     )
@@ -368,6 +387,11 @@ function PaymentPanel({
           <p className="font-semibold text-slate-800">Releasing payment…</p>
         </div>
         <p className="mt-2 text-sm text-slate-500">Waiting for the ledger to confirm. This page updates by itself.</p>
+        {payment?.tx_hash && (
+          <div className="mt-3">
+            <TxHash hash={payment.tx_hash} mode={payment.mode ?? null} />
+          </div>
+        )}
       </Card>
     )
   }
@@ -384,16 +408,16 @@ function PaymentPanel({
 
       {(blocked || blockedError) && milestone && (
         <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          Payment is blocked until <b>{milestone.id}</b> (“{milestone.title}”) is verified.
-          {USE_MOCKS && (
-            <button
-              onClick={() => verify.mutate(milestone.id)}
-              disabled={verify.isPending}
-              className="mt-2 block text-xs font-semibold text-brand-700 underline disabled:opacity-60"
-            >
-              {verify.isPending ? 'Verifying…' : `Mark ${milestone.id} verified (mock only)`}
-            </button>
-          )}
+          Payment is blocked until <b>{milestone.code}</b> (“{milestone.title}”) is verified.
+          {/* POST /milestones/:id/verify is an official municipality/auditor action in the real API too. */}
+          <button
+            onClick={() => verify.mutate(milestone.id)}
+            disabled={verify.isPending}
+            className="mt-2 block text-xs font-semibold text-brand-700 underline disabled:opacity-60"
+          >
+            {verify.isPending ? 'Verifying…' : `Verify ${milestone.code} now (official check)`}
+          </button>
+          {verify.error && <p className="mt-1 text-xs text-red-600">{verify.error.message}</p>}
         </div>
       )}
 
@@ -413,14 +437,8 @@ function PaymentPanel({
 // ---------- history ----------
 
 const DECISION_LABEL = { approve: 'Approved', hold: 'Put on hold', reject: 'Rejected' }
-const TX_LABEL = {
-  allocation: 'Budget allocated',
-  invoice_submitted: 'Submitted (document hash recorded)',
-  invoice_rejected: 'Rejection recorded',
-  payment: 'Payment released',
-}
-
 function History({ inv }: { inv: InvoiceDetail }) {
+  const { users } = useViewAs()
   if (inv.approvals.length === 0 && inv.transactions.length === 0) return null
   return (
     <Card>
@@ -429,7 +447,7 @@ function History({ inv }: { inv: InvoiceDetail }) {
         {inv.approvals.map((a) => (
           <li key={a.id} className="text-sm">
             <p className="font-semibold text-slate-800">
-              {DECISION_LABEL[a.decision]} by {a.decided_by_name}
+              {DECISION_LABEL[a.decision]} by {approverName(a, users)}
               {a.overrode_ai && (
                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">AI overridden</span>
               )}
@@ -441,8 +459,13 @@ function History({ inv }: { inv: InvoiceDetail }) {
         {inv.transactions.map((t) => (
           <li key={t.id} className="text-sm">
             <p className="font-semibold text-slate-800">
-              {TX_LABEL[t.kind]}
-              {t.moves_money && t.amount_cents !== null && <> · {formatMoney(t.amount_cents)}</>}
+              {TX_LABEL[t.operation] ?? t.operation}
+              {movesMoney(t) && <> · {formatMoney(t.amount_cents)}</>}
+              {t.status !== 'confirmed' && (
+                <span className={`ml-2 text-xs ${t.status === 'failed' ? 'text-red-600' : 'text-sky-700'}`}>
+                  {t.status === 'failed' ? 'Failed' : 'Pending'}
+                </span>
+              )}
             </p>
             <p className="text-xs text-slate-500">{formatDateTime(t.created_at)}</p>
             <div className="mt-1">
