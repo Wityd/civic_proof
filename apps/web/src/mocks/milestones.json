@@ -1,8 +1,11 @@
 [
   {
-    "id": "M1",
-    "project_id": "CP001",
+    "id": "30000000-0000-4000-8000-000000000001",
+    "project_id": "10000000-0000-4000-8000-000000000001",
+    "code": "M1",
     "title": "8 tanks installed at 4 village sites",
-    "status": "pending"
+    "description": "Fictional demo milestone; official verification required before installation payment.",
+    "status": "pending",
+    "verified_at": null
   }
 ]

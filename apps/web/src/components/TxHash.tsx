@@ -1,3 +1,4 @@
+import { explorerUrl } from '../lib/ledger'
 import type { LedgerMode } from '../types'
 
 function shorten(hash: string) {
@@ -12,14 +13,15 @@ export function SimulatedBadge() {
   )
 }
 
-// Only link to Snowtrace for real Fuji transactions. Simulated hashes are plain text.
+// Link to the block explorer only for real chain transactions (fuji/bsc). Simulated hashes are plain text.
 export function TxHash({ hash, mode }: { hash: string | null; mode: LedgerMode | null }) {
   if (!hash) return <span className="text-slate-400">—</span>
 
-  if (mode === 'fuji' && !hash.startsWith('sim_')) {
+  const url = explorerUrl(mode, hash)
+  if (url) {
     return (
       <a
-        href={`https://testnet.snowtrace.io/tx/${hash}`}
+        href={url}
         target="_blank"
         rel="noreferrer"
         title={hash}

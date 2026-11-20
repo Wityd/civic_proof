@@ -4,7 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { RequireRole } from '../components/RequireRole'
 import { api, ApiError } from '../lib/api'
 import { useMilestone } from '../lib/useMilestone'
-import type { ConfirmDeliveryPayload, DeliveryAnswer, DeliveryConfirmation } from '../types'
+import { ANSWER_PREFIX } from '../lib/ledger'
+import type { DeliveryAnswer, Verification } from '../types'
 
 export function ConfirmDeliveryPage() {
   return (
@@ -50,11 +51,15 @@ function ConfirmDelivery() {
   const [answer, setAnswer] = useState<DeliveryAnswer | null>(null)
   const [comment, setComment] = useState('')
 
+  // The API stores only { note } for now (answer field REQUESTED from P2), so the answer leads the note.
   const confirm = useMutation({
-    mutationFn: (payload: ConfirmDeliveryPayload) =>
-      api.post<DeliveryConfirmation>(`/milestones/${milestoneId}/confirm`, payload),
+    mutationFn: (a: DeliveryAnswer) =>
+      api.post<Verification[]>(`/milestones/${milestoneId}/confirm`, {
+        note: [ANSWER_PREFIX[a], comment.trim()].filter(Boolean).join(' '),
+      }),
   })
-  const alreadyAnswered = confirm.error instanceof ApiError && confirm.error.code === 'ALREADY_CONFIRMED'
+  const alreadyAnswered =
+    confirm.error instanceof ApiError && ['ALREADY_CONFIRMED', 'CONFLICT'].includes(confirm.error.code)
 
   if (isPending) return <div className="mx-auto h-80 max-w-xl animate-pulse rounded-card bg-white shadow-card" />
   if (error || !milestone) {
@@ -79,7 +84,7 @@ function ConfirmDelivery() {
           {alreadyAnswered ? 'You already answered' : 'Answer received'}
         </h1>
         <p className="mt-2 text-slate-600">
-          {confirm.data ? THANKS[confirm.data.answer] : 'Each resident can answer once per delivery.'}
+          {confirm.isSuccess && answer ? THANKS[answer] : 'Your earlier answer is already recorded.'}
         </p>
         <p className="mt-3 text-xs text-slate-400">Your name is never shown on public pages.</p>
         {project && (
@@ -104,7 +109,7 @@ function ConfirmDelivery() {
 
       <section className="rounded-card bg-white p-6 shadow-card sm:p-8">
         <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-          {project?.id} · {milestone.id}
+          {project?.code} · {milestone.code}
         </p>
         <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">Did the delivery happen?</h1>
         <p className="mt-3 rounded-2xl bg-slate-50 p-4 text-lg font-medium text-slate-800">“{milestone.title}”</p>
@@ -146,14 +151,14 @@ function ConfirmDelivery() {
         )}
 
         <button
-          onClick={() => answer && confirm.mutate({ answer, comment: comment.trim() || null })}
+          onClick={() => answer && confirm.mutate(answer)}
           disabled={!answer || confirm.isPending}
           className="mt-6 w-full rounded-full bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {confirm.isPending ? 'Sending…' : answer ? 'Send my answer' : 'Choose an answer above'}
         </button>
         <p className="mt-3 text-center text-xs text-slate-400">
-          Your name is never shown on public pages. Each resident can answer once.
+          Your name is never shown on public pages.
         </p>
       </section>
     </div>

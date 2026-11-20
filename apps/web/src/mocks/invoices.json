@@ -1,19 +1,24 @@
 [
   {
-    "id": "inv_001",
-    "project_id": "CP001",
-    "supplier_id": "sup_bluebasin",
-    "supplier_name": "Blue Basin Tanks (Pty) Ltd",
+    "id": "50000000-0000-4000-8000-000000000001",
+    "project_id": "10000000-0000-4000-8000-000000000001",
+    "supplier_id": "20000000-0000-4000-8000-000000000001",
+    "submitted_by": "60000000-0000-4000-8000-000000000002",
+    "milestone_id": null,
     "invoice_number": "BB-1021",
     "invoice_date": "2026-11-18",
     "total_cents": 11840000,
+    "document_path": "60000000-0000-4000-8000-000000000002/50000000-0000-4000-8000-000000000001.pdf",
+    "document_sha256": "f17526c8c67666605f47980c5fb7d675e9b1eaa107997598f464429f963692e0",
     "status": "paid",
-    "flags": [],
-    "milestone_id": null,
-    "tx_hash": "sim_9f3a2b7c4d1e8f6a5b0c3d2e1f4a7b6c9d8e0f12",
-    "tx_mode": "simulated",
-    "line_items": [
+    "ledger_mode": "simulated",
+    "created_at": "2026-11-18T11:00:00Z",
+    "updated_at": "2026-11-20T09:10:00Z",
+    "items": [
       {
+        "id": "90000000-0000-4000-8000-000000000001",
+        "invoice_id": "50000000-0000-4000-8000-000000000001",
+        "line_index": 0,
         "description": "10,000 L polyethylene water tank",
         "category": "water_storage",
         "reference_sku": "TANK-PE-10000",
@@ -22,70 +27,81 @@
         "line_total_cents": 11840000
       }
     ],
-    "ai_review": {
-      "extraction": {
-        "supplier_name": "Blue Basin Tanks (Pty) Ltd",
-        "registration_no": "2014/203381/07",
-        "invoice_number": "BB-1021",
-        "invoice_date": "2026-11-18",
-        "line_items": [
+    "ai_reviews": [
+      {
+        "id": "70000000-0000-4000-8000-000000000001",
+        "invoice_id": "50000000-0000-4000-8000-000000000001",
+        "extraction": {
+          "supplier_name": "Blue Basin Tanks (Pty) Ltd",
+          "registration_no": "2015/100001/07",
+          "invoice_number": "BB-1021",
+          "invoice_date": "2026-11-18",
+          "line_items": [
+            {
+              "description": "10,000 L polyethylene water tank",
+              "category": "water_storage",
+              "reference_sku": "TANK-PE-10000",
+              "quantity": 8,
+              "unit_price_cents": 1480000,
+              "line_total_cents": 11840000
+            }
+          ],
+          "total_cents": 11840000,
+          "confidence": 0.96
+        },
+        "checks": [],
+        "flags": [],
+        "benchmarks": [
           {
-            "description": "10,000 L polyethylene water tank",
-            "category": "water_storage",
-            "reference_sku": "TANK-PE-10000",
-            "quantity": 8,
-            "unit_price_cents": 1480000,
-            "line_total_cents": 11840000
+            "line": 0,
+            "sku": "TANK-PE-10000",
+            "benchmark_unit_cents": 1500000,
+            "invoice_unit_cents": 1480000,
+            "benchmark_total_cents": 12000000,
+            "excess_cents": 0,
+            "source": "Seeded fictional demo data"
           }
         ],
-        "total_cents": 11840000,
-        "confidence": 0.96
-      },
-      "checks": [],
-      "flags": [],
-      "benchmarks": [
-        {
-          "line": 0,
-          "sku": "TANK-PE-10000",
-          "benchmark_unit_cents": 1500000,
-          "invoice_unit_cents": 1480000,
-          "benchmark_total_cents": 12000000,
-          "excess_cents": 0,
-          "source": "Seeded fictional demo data"
-        }
-      ],
-      "potential_excess_cents": 0,
-      "recommendation": "APPROVE",
-      "explanation": "Tanks match the project purpose and the price is in line with the benchmark. No problems found.",
-      "mode": "llm"
-    },
+        "potential_excess_cents": 0,
+        "recommendation": "APPROVE",
+        "explanation": "Tanks match the project purpose and the price is in line with the benchmark. No problems found.",
+        "mode": "llm",
+        "created_at": "2026-11-18T16:00:00Z"
+      }
+    ],
     "approvals": [
       {
-        "id": "apr_001",
-        "invoice_id": "inv_001",
+        "id": "80000000-0000-4000-8000-000000000001",
+        "invoice_id": "50000000-0000-4000-8000-000000000001",
+        "actor_id": "60000000-0000-4000-8000-000000000003",
         "decision": "approve",
         "reason": null,
-        "decided_by_name": "Lerato Khumalo",
         "overrode_ai": false,
+        "ai_review_id": "70000000-0000-4000-8000-000000000001",
         "created_at": "2026-11-20T09:10:00Z"
       }
     ]
   },
   {
-    "id": "inv_002",
-    "project_id": "CP001",
-    "supplier_id": "sup_pipeworks",
-    "supplier_name": "Pipeworks Direct CC",
+    "id": "50000000-0000-4000-8000-000000000002",
+    "project_id": "10000000-0000-4000-8000-000000000001",
+    "supplier_id": "20000000-0000-4000-8000-000000000002",
+    "submitted_by": "60000000-0000-4000-8000-000000000002",
+    "milestone_id": null,
     "invoice_number": "PD-0147",
     "invoice_date": "2026-11-18",
     "total_cents": 24000000,
+    "document_path": "60000000-0000-4000-8000-000000000002/50000000-0000-4000-8000-000000000002.pdf",
+    "document_sha256": "4eaa476296ba37d4b853d98f0d3a6d72394bccc34ad1b9521e26b05153c90e61",
     "status": "on_hold",
-    "flags": ["PRICE_ABOVE_BENCHMARK", "SUPPLIER_REVIEW_REQUIRED"],
-    "milestone_id": null,
-    "tx_hash": null,
-    "tx_mode": null,
-    "line_items": [
+    "ledger_mode": "simulated",
+    "created_at": "2026-11-18T15:20:00Z",
+    "updated_at": "2026-11-20T09:40:00Z",
+    "items": [
       {
+        "id": "90000000-0000-4000-8000-000000000002",
+        "invoice_id": "50000000-0000-4000-8000-000000000002",
+        "line_index": 0,
         "description": "250mm HDPE pipe 12m",
         "category": "pipes",
         "reference_sku": "PIPE-HDPE-250-12",
@@ -94,82 +110,96 @@
         "line_total_cents": 24000000
       }
     ],
-    "ai_review": {
-      "extraction": {
-        "supplier_name": "Pipeworks Direct CC",
-        "registration_no": "2026/771204/23",
-        "invoice_number": "PD-0147",
-        "invoice_date": "2026-11-18",
-        "line_items": [
+    "ai_reviews": [
+      {
+        "id": "70000000-0000-4000-8000-000000000002",
+        "invoice_id": "50000000-0000-4000-8000-000000000002",
+        "extraction": {
+          "supplier_name": "Pipeworks Direct CC",
+          "registration_no": "2026/771204/23",
+          "invoice_number": "PD-0147",
+          "invoice_date": "2026-11-18",
+          "line_items": [
+            {
+              "description": "250mm HDPE pipe 12m",
+              "category": "pipes",
+              "reference_sku": "PIPE-HDPE-250-12",
+              "quantity": 20,
+              "unit_price_cents": 1200000,
+              "line_total_cents": 24000000
+            }
+          ],
+          "total_cents": 24000000,
+          "confidence": 0.93
+        },
+        "checks": [
           {
-            "description": "250mm HDPE pipe 12m",
-            "category": "pipes",
-            "reference_sku": "PIPE-HDPE-250-12",
-            "quantity": 20,
-            "unit_price_cents": 1200000,
-            "line_total_cents": 24000000
+            "code": "PRICE_ABOVE_BENCHMARK",
+            "severity": "high",
+            "line": 0,
+            "detail": "R12,000.00 per unit vs benchmark R5,200.00 (+131%)"
+          },
+          {
+            "code": "SUPPLIER_REVIEW_REQUIRED",
+            "severity": "medium",
+            "detail": "Supplier registered 21 days before invoice date"
           }
         ],
-        "total_cents": 24000000,
-        "confidence": 0.93
-      },
-      "checks": [
-        {
-          "code": "PRICE_ABOVE_BENCHMARK",
-          "severity": "high",
-          "line": 0,
-          "detail": "R12,000.00 per unit vs benchmark R5,200.00 (+131%)"
-        },
-        {
-          "code": "SUPPLIER_REVIEW_REQUIRED",
-          "severity": "medium",
-          "detail": "Supplier registered 21 days before invoice date"
-        }
-      ],
-      "flags": ["PRICE_ABOVE_BENCHMARK", "SUPPLIER_REVIEW_REQUIRED"],
-      "benchmarks": [
-        {
-          "line": 0,
-          "sku": "PIPE-HDPE-250-12",
-          "benchmark_unit_cents": 520000,
-          "invoice_unit_cents": 1200000,
-          "benchmark_total_cents": 10400000,
-          "excess_cents": 13600000,
-          "source": "Seeded fictional demo data"
-        }
-      ],
-      "potential_excess_cents": 13600000,
-      "recommendation": "HOLD_FOR_REVIEW",
-      "explanation": "The pipe price is more than double the benchmark, which could mean R136,000.00 is overpaid. The supplier was registered only 21 days before the invoice. A person should check this before paying.",
-      "mode": "llm"
-    },
+        "flags": [
+          "PRICE_ABOVE_BENCHMARK",
+          "SUPPLIER_REVIEW_REQUIRED"
+        ],
+        "benchmarks": [
+          {
+            "line": 0,
+            "sku": "PIPE-HDPE-250-12",
+            "benchmark_unit_cents": 520000,
+            "invoice_unit_cents": 1200000,
+            "benchmark_total_cents": 10400000,
+            "excess_cents": 13600000,
+            "source": "Seeded fictional demo data"
+          }
+        ],
+        "potential_excess_cents": 13600000,
+        "recommendation": "HOLD_FOR_REVIEW",
+        "explanation": "The pipe price is more than double the benchmark, which could mean R136,000.00 is overpaid. The supplier was registered only 21 days before the invoice. A person should check this before paying.",
+        "mode": "llm",
+        "created_at": "2026-11-18T16:20:00Z"
+      }
+    ],
     "approvals": [
       {
-        "id": "apr_002",
-        "invoice_id": "inv_002",
+        "id": "80000000-0000-4000-8000-000000000002",
+        "invoice_id": "50000000-0000-4000-8000-000000000002",
+        "actor_id": "60000000-0000-4000-8000-000000000003",
         "decision": "hold",
         "reason": "Price is 131% above benchmark and the supplier is very new. Asking for competing quotes and a company registration check.",
-        "decided_by_name": "Lerato Khumalo",
         "overrode_ai": false,
+        "ai_review_id": "70000000-0000-4000-8000-000000000002",
         "created_at": "2026-11-20T09:40:00Z"
       }
     ]
   },
   {
-    "id": "inv_003",
-    "project_id": "CP001",
-    "supplier_id": "sup_summit",
-    "supplier_name": "Summit Motors (Pty) Ltd",
+    "id": "50000000-0000-4000-8000-000000000003",
+    "project_id": "10000000-0000-4000-8000-000000000001",
+    "supplier_id": "20000000-0000-4000-8000-000000000003",
+    "submitted_by": "60000000-0000-4000-8000-000000000002",
+    "milestone_id": null,
     "invoice_number": "SM-2290",
     "invoice_date": "2026-11-19",
     "total_cents": 78500000,
+    "document_path": "60000000-0000-4000-8000-000000000002/50000000-0000-4000-8000-000000000003.pdf",
+    "document_sha256": "c5510d99af2330f020a922d934aa09e0bb43e743bcc931346c23afe4416cb960",
     "status": "rejected",
-    "flags": ["PURPOSE_MISMATCH", "NO_BENCHMARK"],
-    "milestone_id": null,
-    "tx_hash": null,
-    "tx_mode": null,
-    "line_items": [
+    "ledger_mode": "simulated",
+    "created_at": "2026-11-19T09:05:00Z",
+    "updated_at": "2026-11-20T10:00:00Z",
+    "items": [
       {
+        "id": "90000000-0000-4000-8000-000000000003",
+        "invoice_id": "50000000-0000-4000-8000-000000000003",
+        "line_index": 0,
         "description": "4x4 double-cab bakkie",
         "category": "vehicles",
         "reference_sku": null,
@@ -178,73 +208,87 @@
         "line_total_cents": 78500000
       }
     ],
-    "ai_review": {
-      "extraction": {
-        "supplier_name": "Summit Motors (Pty) Ltd",
-        "registration_no": "2009/118842/07",
-        "invoice_number": "SM-2290",
-        "invoice_date": "2026-11-19",
-        "line_items": [
+    "ai_reviews": [
+      {
+        "id": "70000000-0000-4000-8000-000000000003",
+        "invoice_id": "50000000-0000-4000-8000-000000000003",
+        "extraction": {
+          "supplier_name": "Summit Motors (Pty) Ltd",
+          "registration_no": "2016/100003/07",
+          "invoice_number": "SM-2290",
+          "invoice_date": "2026-11-19",
+          "line_items": [
+            {
+              "description": "4x4 double-cab bakkie",
+              "category": "vehicles",
+              "reference_sku": null,
+              "quantity": 1,
+              "unit_price_cents": 78500000,
+              "line_total_cents": 78500000
+            }
+          ],
+          "total_cents": 78500000,
+          "confidence": 0.95
+        },
+        "checks": [
           {
-            "description": "4x4 double-cab bakkie",
-            "category": "vehicles",
-            "reference_sku": null,
-            "quantity": 1,
-            "unit_price_cents": 78500000,
-            "line_total_cents": 78500000
+            "code": "PURPOSE_MISMATCH",
+            "severity": "high",
+            "line": 0,
+            "detail": "A vehicle is not in the project categories (water storage, pipes, installation)"
+          },
+          {
+            "code": "NO_BENCHMARK",
+            "severity": "info",
+            "line": 0,
+            "detail": "No benchmark price for this item"
           }
         ],
-        "total_cents": 78500000,
-        "confidence": 0.95
-      },
-      "checks": [
-        {
-          "code": "PURPOSE_MISMATCH",
-          "severity": "high",
-          "line": 0,
-          "detail": "A vehicle is not in the project categories (water storage, pipes, installation)"
-        },
-        {
-          "code": "NO_BENCHMARK",
-          "severity": "info",
-          "line": 0,
-          "detail": "No benchmark price for this item"
-        }
-      ],
-      "flags": ["PURPOSE_MISMATCH", "NO_BENCHMARK"],
-      "benchmarks": [],
-      "potential_excess_cents": 0,
-      "recommendation": "REJECT",
-      "explanation": "This invoice is for a vehicle, which is not part of the water project. It should not be paid from this budget.",
-      "mode": "llm"
-    },
+        "flags": [
+          "PURPOSE_MISMATCH",
+          "NO_BENCHMARK"
+        ],
+        "benchmarks": [],
+        "potential_excess_cents": 0,
+        "recommendation": "REJECT",
+        "explanation": "This invoice is for a vehicle, which is not part of the water project. It should not be paid from this budget.",
+        "mode": "llm",
+        "created_at": "2026-11-19T16:05:00Z"
+      }
+    ],
     "approvals": [
       {
-        "id": "apr_003",
-        "invoice_id": "inv_003",
+        "id": "80000000-0000-4000-8000-000000000003",
+        "invoice_id": "50000000-0000-4000-8000-000000000003",
+        "actor_id": "60000000-0000-4000-8000-000000000003",
         "decision": "reject",
         "reason": "A vehicle is outside the scope of the water access project.",
-        "decided_by_name": "Lerato Khumalo",
         "overrode_ai": false,
+        "ai_review_id": "70000000-0000-4000-8000-000000000003",
         "created_at": "2026-11-20T10:00:00Z"
       }
     ]
   },
   {
-    "id": "inv_004",
-    "project_id": "CP001",
-    "supplier_id": "sup_bluebasin",
-    "supplier_name": "Blue Basin Tanks (Pty) Ltd",
+    "id": "50000000-0000-4000-8000-000000000004",
+    "project_id": "10000000-0000-4000-8000-000000000001",
+    "supplier_id": "20000000-0000-4000-8000-000000000001",
+    "submitted_by": "60000000-0000-4000-8000-000000000002",
+    "milestone_id": "30000000-0000-4000-8000-000000000001",
     "invoice_number": "BB-1034",
     "invoice_date": "2026-11-19",
     "total_cents": 6400000,
+    "document_path": "60000000-0000-4000-8000-000000000002/50000000-0000-4000-8000-000000000004.pdf",
+    "document_sha256": "8965838b78aa2335de932123760a9ae6813f02cd6b2737a9609eca9ee8ff7e5f",
     "status": "approved",
-    "flags": [],
-    "milestone_id": "M1",
-    "tx_hash": null,
-    "tx_mode": null,
-    "line_items": [
+    "ledger_mode": "simulated",
+    "created_at": "2026-11-19T14:40:00Z",
+    "updated_at": "2026-11-20T10:30:00Z",
+    "items": [
       {
+        "id": "90000000-0000-4000-8000-000000000004",
+        "invoice_id": "50000000-0000-4000-8000-000000000004",
+        "line_index": 0,
         "description": "Tank installation (base, plumbing and connection)",
         "category": "installation",
         "reference_sku": "INSTALL-TANK",
@@ -253,51 +297,57 @@
         "line_total_cents": 6400000
       }
     ],
-    "ai_review": {
-      "extraction": {
-        "supplier_name": "Blue Basin Tanks (Pty) Ltd",
-        "registration_no": "2014/203381/07",
-        "invoice_number": "BB-1034",
-        "invoice_date": "2026-11-19",
-        "line_items": [
+    "ai_reviews": [
+      {
+        "id": "70000000-0000-4000-8000-000000000004",
+        "invoice_id": "50000000-0000-4000-8000-000000000004",
+        "extraction": {
+          "supplier_name": "Blue Basin Tanks (Pty) Ltd",
+          "registration_no": "2015/100001/07",
+          "invoice_number": "BB-1034",
+          "invoice_date": "2026-11-19",
+          "line_items": [
+            {
+              "description": "Tank installation (base, plumbing and connection)",
+              "category": "installation",
+              "reference_sku": "INSTALL-TANK",
+              "quantity": 8,
+              "unit_price_cents": 800000,
+              "line_total_cents": 6400000
+            }
+          ],
+          "total_cents": 6400000,
+          "confidence": 0.94
+        },
+        "checks": [],
+        "flags": [],
+        "benchmarks": [
           {
-            "description": "Tank installation (base, plumbing and connection)",
-            "category": "installation",
-            "reference_sku": "INSTALL-TANK",
-            "quantity": 8,
-            "unit_price_cents": 800000,
-            "line_total_cents": 6400000
+            "line": 0,
+            "sku": "INSTALL-TANK",
+            "benchmark_unit_cents": 850000,
+            "invoice_unit_cents": 800000,
+            "benchmark_total_cents": 6800000,
+            "excess_cents": 0,
+            "source": "Seeded fictional demo data"
           }
         ],
-        "total_cents": 6400000,
-        "confidence": 0.94
-      },
-      "checks": [],
-      "flags": [],
-      "benchmarks": [
-        {
-          "line": 0,
-          "sku": "INSTALL-TANK",
-          "benchmark_unit_cents": 850000,
-          "invoice_unit_cents": 800000,
-          "benchmark_total_cents": 6800000,
-          "excess_cents": 0,
-          "source": "Seeded fictional demo data"
-        }
-      ],
-      "potential_excess_cents": 0,
-      "recommendation": "APPROVE",
-      "explanation": "Installation matches the project and the price is below the benchmark. Payment should wait until milestone M1 is verified.",
-      "mode": "llm"
-    },
+        "potential_excess_cents": 0,
+        "recommendation": "APPROVE",
+        "explanation": "Installation matches the project and the price is below the benchmark. Payment should wait until milestone M1 is verified.",
+        "mode": "llm",
+        "created_at": "2026-11-19T16:40:00Z"
+      }
+    ],
     "approvals": [
       {
-        "id": "apr_004",
-        "invoice_id": "inv_004",
+        "id": "80000000-0000-4000-8000-000000000004",
+        "invoice_id": "50000000-0000-4000-8000-000000000004",
+        "actor_id": "60000000-0000-4000-8000-000000000003",
         "decision": "approve",
         "reason": null,
-        "decided_by_name": "Lerato Khumalo",
         "overrode_ai": false,
+        "ai_review_id": "70000000-0000-4000-8000-000000000004",
         "created_at": "2026-11-20T10:30:00Z"
       }
     ]

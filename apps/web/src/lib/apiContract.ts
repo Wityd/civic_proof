@@ -1,16 +1,16 @@
-// Names of the multipart parts for POST /invoices.
-// PLACEHOLDERS until P2 confirms them. Change here only.
+// Multipart part names, as read by supabase/functions/civicproof-api on main.
+
+// POST /invoices
 export const INVOICE_UPLOAD_PARTS = {
   file: 'file', // the PDF
-  data: 'data', // JSON string: NewInvoicePayload
+  invoice: 'invoice', // JSON string: NewInvoicePayload
+} as const
+
+// POST /milestones/:id/evidence
+export const EVIDENCE_UPLOAD_PARTS = {
+  file: 'file', // JPEG, PNG or WebP
+  caption: 'caption', // plain text, optional
 } as const
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024
-
-// Names of the multipart parts for POST /milestones/:id/evidence. PLACEHOLDERS until P2 confirms.
-export const EVIDENCE_UPLOAD_PARTS = {
-  file: 'file', // the photo
-  data: 'data', // JSON string: { note }
-} as const
-
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024
