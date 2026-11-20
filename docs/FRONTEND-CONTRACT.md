@@ -1,5 +1,8 @@
 # Frontend integration: Supabase first
 
+Start with [P2's current Supabase handoff](SUPABASE-P2.md) for the deployed setup,
+demo accounts, table structure, exact request fields and P1's remaining requests.
+
 Express is replaced. Use Supabase Auth/Data API for RLS-permitted operations and
 the Edge router for sensitive actions. Integrate this change on your own branch;
 frontend source files are not changed by this backend update.
@@ -70,7 +73,7 @@ await edge(`/payments/${invoice.id}/execute`, {});
 
 Other calls: `/invoices/:id/hold` and `/reject` require `{reason}`;
 `/milestones/:id/register` and `/verify` take `{}`;
-`/milestones/:id/confirm` takes `{note}` and returns HTTP 201;
+`/milestones/:id/confirm` takes `{answer, note}` and returns HTTP 201;
 `/milestones/:id/evidence` takes multipart `file` and optional `caption`.
 Duplicate images return `DUPLICATE_EVIDENCE`. Community confirmation never
 unlocks payment; official verification does.
@@ -84,7 +87,42 @@ For an authorised invoice file use
 `supabase.storage.from('invoices').createSignedUrl(invoice.document_path, 60)`.
 Ownership/staff RLS applies. Buckets stay private; browser uploads are not granted.
 
-Show **Simulated ledger** for the current mode and no explorer links for `sim_*`
-hashes. Live financial writes return `503 CHAIN_NOT_READY` until P3's adapter is
-configured. Rules-mode analysis uses submitted manual data; PDF/LLM extraction
-is P4's integration boundary. See [BACKEND.md](BACKEND.md) for all implemented routes.
+Read `wallet_mode` from `/me` and `mode` from project responses. The deployed
+CP001 mode is `fuji`: show **Avalanche Fuji** and the returned `explorer_url`.
+Show **Simulated ledger** without explorer links for `sim_*` hashes when simulated
+mode is selected. Chain commands can return HTTP 202 with `chain_status: pending`;
+retain the returned invoice/transaction ID and retry that action or have staff call
+`POST /chain/reconcile`. Do not submit a second invoice to retry an existing one.
+Rules-mode analysis uses submitted manual data; PDF/LLM extraction remains P4's
+integration boundary. See [BACKEND.md](BACKEND.md) for all implemented routes.
+
+### Supplier selection and review filters
+
+`GET /me` now includes `supplier_ids: string[]` and
+`suppliers: { id: string; name: string }[]`, restricted to records whose `user_id`
+matches the authenticated caller. Accounts without owned suppliers receive empty
+arrays. The demo supplier owns three records: let them select one and send its
+`id` as `supplier_id` when submitting an invoice. Ownership is still checked by
+the server; these fields do not grant additional access.
+
+`GET /invoices?status=submitted,analysed,on_hold,approved` returns invoices matching
+any listed status, under the caller's existing RLS permissions. A single status
+and an omitted filter both remain supported. Spaces and duplicates are accepted;
+unknown statuses and empty list entries return HTTP 400. Combine with
+`project_id=UUID` to limit results to a project.
+
+### Milestones, delivery answers and approver names
+
+`GET /projects`, `GET /projects/:id` and `get_public_dashboard` include
+`milestones: {id, code, title, description, status, verified_at}[]` on each project.
+The array is empty for projects without milestones. Registration remains separate
+from milestone status (`pending` or `verified`).
+
+Community confirmation accepts `answer: 'yes' | 'no' | 'not_sure'` and optional
+`note`. Its response is an array of inserted verification rows including `answer`.
+Older note-only submissions and existing rows have `answer: null`. Invalid values
+return HTTP 400; a community answer never authorises payment.
+
+`GET /invoices/:id` adds `actor_display_name` to each item in `approvals` for
+authorised invoice readers, including the auditor. It is the current profile name;
+no additional profile fields are exposed. Raw table reads do not add this field.

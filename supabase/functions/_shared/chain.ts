@@ -2,8 +2,8 @@
 //
 // Every call is: dry run (staticCall) → send → wait for confirmation.
 //  - A rule violation is caught in the dry run: nothing is sent and no gas is spent.
-//  - `onSent(hash)` fires as soon as the transaction is broadcast, so the caller can
-//    store the hash BEFORE waiting; a crash or timeout can then be reconciled.
+//  - `onSent(hash)` persists the signed transaction's hash BEFORE broadcasting;
+//    a crash or timeout can then be reconciled without sending twice.
 //  - A timeout is reported as 'pending' (never 'failed'): the transaction may still land.
 import { Contract, FetchRequest, JsonRpcProvider, Wallet, ZeroHash, keccak256, toUtf8Bytes } from 'npm:ethers@6.17.0';
 import { PROJECT_WALLET_ABI } from './project_wallet_abi.ts';
@@ -102,18 +102,37 @@ export class ChainAdapter {
     return { balanceCents: BigInt(balance), availableCents: BigInt(available) };
   }
 
+  /** Read-only production preflight; never signs or broadcasts. */
+  async readiness(wallet: string, projectId: string) {
+    await this.ensureReady();
+    const signer = await this.signer.getAddress();
+    const view = new Contract(wallet, [
+      'function projectId() view returns(bytes32)', 'function allocated() view returns(uint256)',
+      'function token() view returns(address)', 'function hasRole(bytes32,address) view returns(bool)',
+    ], this.provider);
+    const [project, allocated, token, municipality, approver, gas, balance] = await Promise.all([
+      view.projectId(), view.allocated(), view.token(), view.hasRole(keccak256(toUtf8Bytes('MUNICIPALITY_ROLE')),signer),
+      view.hasRole(keccak256(toUtf8Bytes('APPROVER_ROLE')),signer), this.provider.getBalance(signer), this.balance(wallet),
+    ]);
+    return { ready: project === chainKey(projectId) && municipality && approver && gas > 0n,
+      mode:this.mode, chain_id:this.expectedChainId, signer_address:signer, wallet_address:wallet,
+      token_address:token, project_matches:project===chainKey(projectId), has_municipality_role:Boolean(municipality),
+      has_approver_role:Boolean(approver), gas_balance_wei:gas.toString(), allocated_cents:allocated.toString(),
+      balance_cents:balance.balanceCents.toString(), available_cents:balance.availableCents.toString() };
+  }
+
   /** Reconciles a pending transaction by its hash. */
   async receipt(hash: string): Promise<ChainResult> {
     await this.ensureReady();
     const r = await this.provider.getTransactionReceipt(hash);
     if (r) {
+      if ((await this.provider.getBlockNumber()) - r.blockNumber + 1 < this.confirmations) return { status: 'pending', txHash: hash };
       return r.status === 1
         ? { status: 'confirmed', txHash: hash, blockNumber: r.blockNumber }
         : { status: 'failed', txHash: hash, blockNumber: r.blockNumber, error: 'REVERTED' };
     }
-    return (await this.provider.getTransaction(hash))
-      ? { status: 'pending', txHash: hash }
-      : { status: 'failed', txHash: hash, error: 'NOT_FOUND', detail: 'transaction not found on chain' };
+    // A temporarily missing hash is not proof that a broadcast failed.
+    return { status: 'pending', txHash: hash };
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
@@ -142,16 +161,25 @@ export class ChainAdapter {
       if (name) return { status: 'failed', error: errorCode(name), detail: name };
       throw e; // RPC unreachable etc.: nothing was sent
     }
-    // deno-lint-ignore no-explicit-any
-    let tx: any;
+    let raw: string;
     try {
-      tx = await c[method](...args);
+      const request = await c[method].populateTransaction(...args);
+      raw = await this.signer.signTransaction(await this.signer.populateTransaction(request));
     } catch (e) {
       const name = revertName(e);
       if (name) return { status: 'failed', error: errorCode(name), detail: name };
       throw e;
     }
-    if (onSent) await onSent(tx.hash);
+    // Persist the deterministic hash BEFORE broadcasting. If persistence fails,
+    // do not send and do not roll back a record whose commit outcome is unknown.
+    const hash = keccak256(raw);
+    if (onSent) {
+      try { await onSent(hash); }
+      catch { return { status: 'pending', detail: 'Hash persistence requires reconciliation; nothing was broadcast by this attempt.' }; }
+    }
+    let tx;
+    try { tx = await this.provider.broadcastTransaction(raw); }
+    catch { return { status: 'pending', txHash: hash, detail: 'Broadcast outcome unknown; reconcile this hash before retrying.' }; }
     try {
       const r = await tx.wait(this.confirmations, this.timeoutMs);
       if (!r) return { status: 'pending', txHash: tx.hash };

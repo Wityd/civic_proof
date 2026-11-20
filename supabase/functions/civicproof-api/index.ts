@@ -1,5 +1,5 @@
 import { analyse, type AnalysisContext } from '../_shared/rules.ts';
-import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
+import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainStatus, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 class ApiError extends Error { constructor(public code: string, message: string, public status = 400) { super(message); } }
@@ -116,21 +116,33 @@ async function handle(req: Request): Promise<Response> {
     const user = await authResponse.json(); const actor = uuid(user.id);
     const context = await rpc('cp_context', { p_actor: actor });
     const requireRole = (...roles: string[]) => { if (!roles.includes(context.role)) throw new ApiError('FORBIDDEN', 'Your role cannot perform this action.', 403); };
+    if(req.method==='GET' && path==='/chain/status') {
+      requireRole('municipality','auditor');
+      const mode=requestUrl.searchParams.get('mode') || 'fuji';
+      if(mode!=='fuji' && mode!=='bsc') throw new ApiError('VALIDATION','Select fuji or bsc.');
+      const project=uuid(requestUrl.searchParams.get('project_id'));
+      const wallets=await db(`project_wallets?project_id=eq.${project}&mode=eq.${mode}&select=wallet_address`);
+      if(!wallets[0]) throw new ApiError('CHAIN_NOT_READY','No project wallet is registered for this chain.',503);
+      return response({data:await chainStatus(chainDeps,mode,wallets[0].wallet_address,project)});
+    }
     if (req.method === 'GET' && path === '/me') {
       const rows = await db(`users?id=eq.${actor}&select=id,display_name,role`, 'GET', undefined, token);
-      return response({ data: { ...rows[0], wallet_mode: context.mode } });
+      const suppliers = await db(`suppliers?user_id=eq.${actor}&select=id,name&order=name.asc,id.asc`, 'GET', undefined, token);
+      return response({ data: { ...rows[0], wallet_mode: context.mode, supplier_ids: suppliers.map((s: { id: string }) => s.id), suppliers } });
     }
     if (req.method === 'GET' && path === '/invoices') {
       requireRole('supplier', 'municipality', 'auditor');
       const project = requestUrl.searchParams.get('project_id'); const status = requestUrl.searchParams.get('status');
-      if (status && !['submitted','analysed','approved','on_hold','rejected','payment_pending','paid','payment_failed'].includes(status)) throw new ApiError('VALIDATION', 'Invalid invoice status.');
-      return response({ data: await db(`invoices?select=*&order=created_at.desc${project ? `&project_id=eq.${uuid(project)}` : ''}${status ? `&status=eq.${status}` : ''}`, 'GET', undefined, token) });
+      const statuses = status === null ? [] : [...new Set(status.split(',').map((s) => s.trim()))];
+      if (statuses.some((s) => !['submitted','analysed','approved','on_hold','rejected','payment_pending','paid','payment_failed'].includes(s))) throw new ApiError('VALIDATION', 'Invalid invoice status.');
+      return response({ data: await db(`invoices?select=*&order=created_at.desc${project ? `&project_id=eq.${uuid(project)}` : ''}${statuses.length ? `&status=in.(${statuses.join(',')})` : ''}`, 'GET', undefined, token) });
     }
     const invoiceRoute = path.match(/^\/invoices\/([^/]+)(?:\/(analyse|approve|hold|reject))?$/);
     if (invoiceRoute && req.method === 'GET' && !invoiceRoute[2]) {
       const rows = await db(`invoices?id=eq.${uuid(invoiceRoute[1])}&select=*,items:invoice_items(*),ai_reviews(*),approvals(*),transactions(*)`, 'GET', undefined, token);
       if (!rows[0]) throw new ApiError('NOT_FOUND', 'Invoice not found.', 404);
-      return response({ data: rows[0] });
+      const approvals = await rpc('cp_invoice_approvals', { p_actor: actor, p_invoice_id: rows[0].id });
+      return response({ data: { ...rows[0], approvals } });
     }
     if (req.method !== 'POST') throw new ApiError('NOT_FOUND', 'Route not found.', 404);
 
@@ -149,7 +161,15 @@ async function handle(req: Request): Promise<Response> {
         }
         return response({ data: await rpc('cp_submit_invoice', { p_actor: actor, p_invoice: { ...inv, document_path: file.path, document_sha256: file.hash }, p_items: items }) }, 201);
       }
-      catch (e) { await file.remove(); throw e; }
+      catch (e) {
+        // A response can be lost after the invoice committed or the chain sent.
+        // Delete only when the database confirms there is no owning invoice.
+        try {
+          const persisted = await db(`invoices?id=eq.${inv.id}&select=id`);
+          if (!persisted.length) await file.remove();
+        } catch { /* Keep the PDF while the commit outcome is unknown. */ }
+        throw e;
+      }
     }
     if (invoiceRoute?.[2]) {
       requireRole('municipality'); const id = uuid(invoiceRoute[1]);
@@ -178,7 +198,12 @@ async function handle(req: Request): Promise<Response> {
         if (context.mode !== 'simulated') { const data = await chainMilestone(chainDeps, actor, id, milestone[2] as 'register' | 'verify'); return response({ data }, chainHttpStatus(data)); }
         return response({ data: await rpc('cp_milestone', { p_actor: actor, p_milestone: id, p_action: milestone[2] }) });
       }
-      if (milestone[2] === 'confirm') { requireRole('citizen'); const body = await json(req); return response({ data: await db('verifications', 'POST', { milestone_id: id, actor_id: actor, kind: 'community', note: text(body.note, 4000, false) }, token) }, 201); }
+      if (milestone[2] === 'confirm') {
+        requireRole('citizen'); const body = await json(req);
+        const answer = body.answer ?? null;
+        if (answer !== null && !['yes','no','not_sure'].includes(answer as string)) throw new ApiError('VALIDATION', 'Answer must be yes, no or not_sure.');
+        return response({ data: await db('verifications', 'POST', { milestone_id: id, actor_id: actor, kind: 'community', answer, note: text(body.note, 4000, false) }, token) }, 201);
+      }
       requireRole('supplier', 'citizen'); const form = await multipart(req);
       const file = await upload(form.get('file'), actor, 'evidence');
       try { return response({ data: await rpc('cp_add_evidence', { p_actor: actor, p_milestone: id, p_path: file.path, p_hash: file.hash, p_caption: text(form.get('caption'), 4000, false) }) }, 201); }

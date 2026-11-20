@@ -20,55 +20,40 @@ Every response in chain mode adds `chain_status` (`confirmed` or `pending`) and 
 - If the network is down before sending: `502 CHAIN_UNAVAILABLE`, nothing is changed, and you can simply retry.
 - If confirmation is slow: `202` with `chain_status: "pending"` and the hash. Retrying **never sends twice**. `POST /chain/reconcile` (municipality or auditor) settles every pending transaction once it's mined.
 
-## Turning it on (one-time, about 10 minutes)
+## Turning it on (one-time, about 5 minutes)
 
-> ⚠️ **Order matters: database first, then the function, then the switch.** The updated `civicproof-api` calls a database function created by the migration. If the function is deployed first, the public dashboard (`GET /projects`) fails until the migration is applied.
-
-| Step | Who | Where |
-| --- | --- | --- |
-| 1–2 | P2 | Supabase **SQL Editor** |
-| 3 | **P3 only**: the key never leaves P3 | Supabase dashboard → **Edge Functions → Secrets** |
-| 4–6 | P2 | Terminal, then SQL Editor |
-
-1. **Apply the migration** in the **SQL Editor**: open `supabase/migrations/20261120200000_p3_chain_mode.sql`, paste all of it, then Run. It's safe to run once.
-   > Don't use `supabase db push` here: the earlier migrations were applied by hand, so `db push` may try to run them again.
-2. **Apply the deployment data** in the SQL Editor, in this order:
-   1. `supabase/deployments/cp001_fuji_wallet.sql` (already applied by P2; safe to re-run)
-   2. `supabase/deployments/demo_supplier_wallets.sql`
-   3. `supabase/deployments/cp001_fuji_ledger.sql` (CP001's real setup transactions on Fuji: created, funded R2,000,000.00, M1 registered)
-
-   **Check** (expect `4 | 3 | 3 | simulated`):
-   ```sql
-   select (select count(*) from pg_proc where proname like 'cp_chain%') as chain_functions,
-          (select count(*) from public.suppliers where wallet_address is not null) as supplier_wallets,
-          (select count(*) from public.transactions where mode = 'fuji') as fuji_ledger_rows,
-          (select wallet_mode from private.runtime_config) as mode;
-   ```
-3. **Add the Edge Function secrets** (P3): dashboard → **Edge Functions → Secrets** → add:
-   - `DEPLOYER_PRIVATE_KEY`: the key that deployed the contracts (it holds the contract roles). Type it straight into the dashboard; never paste it into chat, git or a terminal command.
-   - `FUJI_RPC_URL`: `https://api.avax-test.network/ext/bc/C/rpc`
-4. **Deploy the function** from the repo root:
+1. **Apply the migrations**, after the baseline backend migrations:
+   - `supabase/migrations/20261120181321_p3_chain_mode.sql`
+   - `supabase/migrations/20261120181352_chain_recovery_guards.sql`
+   These names match the hosted migration history. Both are already applied to CivicProof_Project.
+2. **Apply the deployment data** in the SQL editor:
+   - `supabase/deployments/cp001_fuji_wallet.sql` (already applied by P2)
+   - `supabase/deployments/demo_supplier_wallets.sql`
+   - `supabase/deployments/cp001_fuji_ledger.sql`: generate it first, from `contracts/`:
+     ```bash
+     npm run export-ledger:fuji
+     ```
+     This reads CP001's real setup transactions (created, funded R2,000,000.00, M1 registered) from Fuji.
+3. **Set the Edge Function secrets** (never in the frontend):
    ```bash
-   npx supabase functions deploy civicproof-api --project-ref crshjvjrgnnypxbpjmob
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Set-CivicProofChainSecrets.ps1
    ```
-   If it asks for Docker, add `--use-api`.
-5. **Check it's alive:** `https://crshjvjrgnnypxbpjmob.supabase.co/functions/v1/civicproof-api/health` should return `"status":"ok"`, and `…/civicproof-api/projects` should still list CP001.
-6. **Flip the switch** (SQL Editor):
+   Enter the key privately at the hidden prompt. It must match the deployer
+   `0xC3D73FAf9aa330D3448bEEF134Cff4560C75f753`. The script validates that public
+   address and installs the key, Fuji RPC and two-confirmation setting as Edge secrets.
+4. **Deploy the function:** `supabase functions deploy civicproof-api`
+5. **Check readiness** with `scripts/Test-CivicProofChainReadiness.ps1`. It calls
+   the staff-only `GET /chain/status?mode=fuji&project_id=UUID` without signing or
+   broadcasting. Confirm project match, both roles, gas and wallet balance.
+6. **Switch the mode** (SQL editor):
    ```sql
-   update private.runtime_config set wallet_mode = 'fuji';
+   update private.runtime_config set wallet_mode = 'fuji' where singleton;
    ```
-   **First real test:** submit, analyse, approve and execute invoice #1 (8 × R14,800.00) in the app. CP001's wallet on Snowtrace should drop to **R1,881,600.00**: https://testnet.snowtrace.io/address/0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D
-
-To regenerate the ledger file (only needed for a new deployment), run this from `contracts/` with the funding transaction hash that `setup:demo` printed:
-
-```bash
-NEAR_TX=<fundProject tx hash> npm run export-ledger:fuji
-```
 
 **Back to simulated** at any time (for example if Fuji misbehaves during the demo):
 
 ```sql
-update private.runtime_config set wallet_mode = 'simulated';
+update private.runtime_config set wallet_mode = 'simulated' where singleton;
 ```
 
 The two ledgers are kept separate. Invoices created in one mode stay in that mode.
@@ -90,4 +75,59 @@ This runs P2's real schema and migrations (in-memory Postgres) against the real 
 
 - **Creating new projects** in chain mode isn't wired into the API yet: use `contracts` → `npm run setup:demo:fuji`, then `export-ledger:fuji`. CP001 is already live.
 - **One server key** signs every transaction. The on-chain roles prove the rules were followed, not which person clicked. In production each approver would sign with their own key or a multisig.
-- **Concurrent payments** from many users at once could collide on the signer's nonce. That's fine for a demo; in production, use a queue or one signer per worker.
+- **One sender per chain** is enforced by a private database claim. Other actions
+  stay pending until retried after that sender finishes. Pending approvals reserve
+  budget. Only the service role can claim or settle; browser roles cannot call these RPCs.
+- **Uncertain broadcasts stay pending.** The signed hash is stored before broadcast
+  and cannot be replaced. Missing receipts do not prove failure. Staff reconciliation
+  checks recorded hashes; it never blindly resends. A crash between persistence and
+  broadcast, or a permanently dropped transaction, needs operator investigation.
+  Claims without any recorded hash can be retried after ten minutes. Retained files
+  with an uncertain commit outcome may need later orphan cleanup.
+
+## Deployment verified by P2 — 2026-11-20
+
+Database migrations, supplier wallets and three verified setup receipts are applied.
+The updated `civicproof-api` is deployed and runtime mode is Fuji. Read-only signer
+preflight passed for CP001, both contract roles and gas. The wallet holds
+200000000 cents in DemoZAR test tokens; M1 is registered, not officially verified.
+No testnet payment was sent during deployment verification.
+
+Local tests passed all 14 chain scenarios, including the golden path, timeout
+reconciliation, service-role rollback, sender claims, pending budget reservations
+and persistence-failure handling. The deployed simulated HTTP/RLS/storage suite
+also passed before activation and removed its isolated fixtures.
+
+## Demo-day runbook (P3)
+
+### First real payment
+
+`contracts/` → `npm run live:invoice1` runs demo invoice #1 (8 × R14,800.00) through the live API as the supplier and municipality demo users. It needs `SUPABASE_ANON_KEY` and the two logins in the git-ignored `contracts/.env`. It asks for `yes` before sending anything, prints a Snowtrace link per step, and is safe to re-run: it continues from the invoice's current status and never pays twice. Afterwards CP001 should hold **R1,881,600.00**: https://testnet.snowtrace.io/address/0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D
+
+### Every action says "pending" with no link: a stuck sender
+
+Only one transaction per chain may be in flight. If a broadcast was rejected after its hash was stored (for example the public Fuji RPC answering *Too Many Requests*), that transaction stays pending and holds the sender claim, so later actions wait behind it. To fix it (SQL Editor):
+
+```sql
+-- 1. What holds the claim?
+select t.id, t.operation, t.invoice_id, t.tx_hash, t.created_at
+from private.chain_dispatch d join public.transactions t on t.id = d.tx_id
+where d.released_at is null;
+```
+
+2. Open `https://testnet.snowtrace.io/tx/<tx_hash>`.
+   - **Success:** run `POST /chain/reconcile` (municipality or auditor) or re-run the action. It settles from the receipt.
+   - **Not found after about 2 minutes:** it never reached the network. Mark it failed and free the claim, then retry the action in the app:
+     ```sql
+     select public.cp_chain_settle('<id>', 'failed', null, null, 'NOT_BROADCAST');
+     select public.cp_chain_release_claim('<id>');
+     ```
+     A failed release returns the invoice to `payment_failed`, so it can be executed again. A failed approve or reject removes the tentative decision, so it can be decided again.
+
+**Prevention:** set `FUJI_RPC_URL` to a private Fuji endpoint with higher rate limits than the public `api.avax-test.network`, and rehearse in simulated mode.
+
+### Emergency: switch back to simulated
+
+```sql
+update private.runtime_config set wallet_mode = 'simulated' where singleton;
+```
