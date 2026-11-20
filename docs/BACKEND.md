@@ -17,6 +17,10 @@ Supabase first; application code follows once the hosted setup has been verified
 | Live verification | Pending |
 | Express API and shared TypeScript types | Deferred until Supabase is ready |
 
+Token-based local connection configuration and private entry instructions are in
+[SUPABASE-CONNECTION.md](SUPABASE-CONNECTION.md). Configuration alone does not
+mean live authentication or database setup has completed.
+
 This document describes the intended backend. It does not claim that the database,
 API, wallet integration or demo accounts are already working. Before applying SQL,
 inspect the existing database, policies, buckets and Auth users; preserve unrelated
