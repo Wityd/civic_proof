@@ -1,4 +1,5 @@
 import { analyse, type AnalysisContext } from '../_shared/rules.ts';
+import { explainWithAI } from '../_shared/ai.ts';
 import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainStatus, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
@@ -175,7 +176,9 @@ async function handle(req: Request): Promise<Response> {
       requireRole('municipality'); const id = uuid(invoiceRoute[1]);
       if (invoiceRoute[2] === 'analyse') {
         const input = await rpc('cp_analysis_context', { p_actor: actor, p_invoice_id: id }) as AnalysisContext;
-        return response({ data: await rpc('cp_store_analysis', { p_actor: actor, p_invoice_id: id, p_review: analyse(input) }) });
+        // Rules decide; Gemini (AI_MODE=llm) only rewrites the explanation, with guardrails.
+        const review = await explainWithAI(analyse(input), input, Deno.env);
+        return response({ data: await rpc('cp_store_analysis', { p_actor: actor, p_invoice_id: id, p_review: review }) });
       }
       const body = await json(req);
       if (context.mode !== 'simulated') {

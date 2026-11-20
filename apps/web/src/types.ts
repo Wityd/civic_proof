@@ -162,6 +162,7 @@ export type FlagCode =
   | 'SUPPLIER_REVIEW_REQUIRED'
   | 'NO_BENCHMARK'
   | 'DUPLICATE_EVIDENCE'
+  | 'AI_CATEGORY_CONCERN'
 
 export type Recommendation = 'APPROVE' | 'HOLD_FOR_REVIEW' | 'REJECT'
 
