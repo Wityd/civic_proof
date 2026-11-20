@@ -1,5 +1,8 @@
 # Frontend integration: Supabase first
 
+Start with [P2's current Supabase handoff](SUPABASE-P2.md) for the deployed setup,
+demo accounts, table structure, exact request fields and P1's remaining requests.
+
 Express is replaced. Use Supabase Auth/Data API for RLS-permitted operations and
 the Edge router for sensitive actions. Integrate this change on your own branch;
 frontend source files are not changed by this backend update.

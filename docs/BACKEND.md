@@ -3,6 +3,8 @@
 Branch: `p2/backend`. No merge into `main` is authorised.
 Project: `crshjvjrgnnypxbpjmob` (`CivicProof_Project`).
 
+For the current UI handoff in one document, use [SUPABASE-P2.md](SUPABASE-P2.md).
+
 ## Architecture decision
 
 Express is replaced by Supabase Auth, the Data API, RLS policies, Postgres
