@@ -23,9 +23,17 @@ The one-live-release index remains unique by invoice across every mode. Switchin
 networks must never allow a second payment of the same invoice. Wallet balances
 and ledger reads must always filter by the active mode; never sum both chains.
 
-No wallet-address or confirmed-registration records are seeded. P3 must supply
-real deployment addresses and receipts first. The existing CP001 opening ledger
-is explicitly simulated and remains unchanged.
+CP001's supplied Fuji wallet address has now been verified and recorded:
+`0xAdA383A5DF097C3Ef1F23ee2d4db670A8Ac83D4D`. Read-only Fuji RPC calls on chain
+43113 matched CP001's project hash and allocation; funded and balance values were
+both 200000000 cents. Its token getter returned
+`0x1be50e878326F3DDb90B03a817B0F266B23a58E1`, and M1 status was Registered (1),
+not officially Verified (2). The repeatable mapping SQL is
+`supabase/deployments/cp001_fuji_wallet.sql`.
+
+No chain transaction receipts have been fabricated. The runtime remains
+simulated; its opening ledger is unchanged. P3 still needs to supply the factory
+address, confirmed funding/registration receipts and live adapter configuration.
 
 ## Demo IDs for P3
 
