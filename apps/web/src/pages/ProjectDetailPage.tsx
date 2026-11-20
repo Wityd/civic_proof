@@ -5,43 +5,40 @@ import { Money } from '../components/Money'
 import { StatusBadge } from '../components/StatusBadge'
 import { SimulatedBadge, TxHash } from '../components/TxHash'
 import { useViewAs } from '../context/ViewAsContext'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
+import { movesMoney, releaseTx, TX_LABEL } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
-import type { InvoiceSummary, Milestone, ProjectDetail, Transaction, Wallet } from '../types'
+import { useProject } from '../lib/queries'
+import type { LedgerMode, Milestone, PublicInvoice, Transaction, Wallet } from '../types'
 
 export function ProjectDetailPage() {
   const { id = '' } = useParams()
   const { user } = useViewAs()
 
-  const detail = useQuery({
-    queryKey: ['project', id],
-    queryFn: () => api.get<ProjectDetail>(`/projects/${id}`),
-  })
+  const detail = useProject(id)
   const wallet = useQuery({
     queryKey: ['wallet', id],
     queryFn: () => api.get<Wallet>(`/projects/${id}/wallet`),
-  })
-  const ledger = useQuery({
-    queryKey: ['transactions', id],
-    queryFn: () => api.get<Transaction[]>(`/projects/${id}/transactions`),
   })
 
   if (detail.isPending) return <PageSkeleton />
 
   if (detail.error) {
+    // The real API answers VALIDATION for an id that isn't a UUID.
+    const notFound = detail.error instanceof ApiError && ['NOT_FOUND', 'VALIDATION'].includes(detail.error.code)
     return (
       <Card>
         <BackLink />
-        <p className="mt-4 font-semibold text-red-700">
-          {detail.error.message.includes('not found') ? 'Project not found' : 'Could not load this project'}
-        </p>
+        <p className="mt-4 font-semibold text-red-700">{notFound ? 'Project not found' : 'Could not load this project'}</p>
         <p className="mt-1 text-sm text-slate-500">{detail.error.message}</p>
       </Card>
     )
   }
 
-  const { project, milestones, invoices } = detail.data
+  const project = detail.data
+  const { invoices, transactions } = project
+  const milestones = project.milestones
   const notPaidCents = invoices
     .filter((i) => i.status === 'on_hold' || i.status === 'rejected')
     .reduce((sum, i) => sum + i.total_cents, 0)
@@ -53,7 +50,7 @@ export function ProjectDetailPage() {
       {/* Title */}
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{project.id}</span>
+          <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{project.code}</span>
           <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
             Fictional
           </span>
@@ -69,12 +66,7 @@ export function ProjectDetailPage() {
         <Card className="lg:col-span-1">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm text-slate-500">Wallet balance</p>
-            {wallet.data?.mode === 'simulated' && <SimulatedBadge />}
-            {wallet.data?.mode === 'fuji' && (
-              <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                Avalanche Fuji
-              </span>
-            )}
+            {wallet.data && <ModeBadge mode={wallet.data.mode} />}
           </div>
           {wallet.data ? (
             <>
@@ -84,6 +76,9 @@ export function ProjectDetailPage() {
                 <span className="font-semibold text-slate-700">{formatMoney(wallet.data.available_cents)}</span>
               </p>
               <p className="text-xs text-slate-400">Balance minus approved invoices not yet paid.</p>
+              {wallet.data.wallet_address && (
+                <p className="mt-2 font-mono text-xs break-all text-slate-400">{wallet.data.wallet_address}</p>
+              )}
             </>
           ) : (
             <p className="mt-2 text-slate-400">{wallet.error ? wallet.error.message : 'Loading…'}</p>
@@ -93,12 +88,7 @@ export function ProjectDetailPage() {
         <div className="grid grid-cols-2 gap-4 lg:col-span-2">
           <Figure label="Allocated" cents={project.budget_cents} />
           <Figure label="Paid out" cents={project.paid_cents} tone="text-brand-700" />
-          <Figure
-            label="Held or rejected"
-            cents={notPaidCents}
-            tone="text-amber-700"
-            note="Never left the wallet"
-          />
+          <Figure label="Held or rejected" cents={notPaidCents} tone="text-amber-700" note="Never left the wallet" />
           <Figure
             label="Spent"
             text={`${project.budget_cents ? ((project.paid_cents / project.budget_cents) * 100).toFixed(1) : '0.0'}%`}
@@ -124,12 +114,12 @@ export function ProjectDetailPage() {
                   <th className="px-6 py-3 font-semibold">Supplier</th>
                   <th className="px-6 py-3 text-right font-semibold">Amount</th>
                   <th className="px-6 py-3 font-semibold">Status</th>
-                  <th className="px-6 py-3 font-semibold">Transaction</th>
+                  <th className="px-6 py-3 font-semibold">Payment</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((inv) => (
-                  <InvoiceRow key={inv.id} inv={inv} milestones={milestones} />
+                  <InvoiceRow key={inv.id} inv={inv} payment={releaseTx(transactions, inv.id)} />
                 ))}
               </tbody>
             </table>
@@ -141,14 +131,16 @@ export function ProjectDetailPage() {
         {/* Milestones */}
         <Card>
           <h2 className="text-lg font-bold">Milestones</h2>
-          {milestones.length === 0 ? (
+          {!milestones ? (
+            <p className="mt-2 text-sm text-slate-500">Milestones are not available yet.</p>
+          ) : milestones.length === 0 ? (
             <p className="mt-2 text-sm text-slate-500">No milestones.</p>
           ) : (
             <ul className="mt-3 space-y-3">
               {milestones.map((m) => (
                 <li key={m.id} className="rounded-2xl bg-slate-50 p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-400">{m.id}</span>
+                    <span className="text-xs font-semibold text-slate-400">{m.code}</span>
                     <MilestoneBadge status={m.status} />
                   </div>
                   <p className="mt-1 font-medium text-slate-800">{m.title}</p>
@@ -170,13 +162,13 @@ export function ProjectDetailPage() {
         <Card className="lg:col-span-2">
           <h2 className="text-lg font-bold">Ledger</h2>
           <p className="text-sm text-slate-500">
-            Newest first. Only payments reduce the balance. Other events are recorded for proof.
+            Newest first. Only funding and payments move money. Other events are recorded for proof.
           </p>
-          {ledger.isPending && <p className="mt-4 text-slate-400">Loading…</p>}
-          {ledger.error && <p className="mt-4 text-red-600">{ledger.error.message}</p>}
-          {ledger.data && (
+          {transactions.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">No ledger events yet.</p>
+          ) : (
             <ul className="mt-4 divide-y divide-slate-100">
-              {ledger.data.map((tx) => (
+              {transactions.map((tx) => (
                 <LedgerRow key={tx.id} tx={tx} invoices={invoices} />
               ))}
             </ul>
@@ -187,10 +179,16 @@ export function ProjectDetailPage() {
   )
 }
 
-function InvoiceRow({ inv, milestones }: { inv: InvoiceSummary; milestones: Milestone[] }) {
-  const milestone = inv.milestone_id ? milestones.find((m) => m.id === inv.milestone_id) : undefined
-  const waitingOnMilestone = inv.status === 'approved' && milestone && milestone.status !== 'verified'
+function ModeBadge({ mode }: { mode: LedgerMode }) {
+  if (mode === 'simulated') return <SimulatedBadge />
+  return (
+    <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+      {mode === 'fuji' ? 'Avalanche Fuji' : 'BNB testnet'}
+    </span>
+  )
+}
 
+function InvoiceRow({ inv, payment }: { inv: PublicInvoice; payment: Transaction | undefined }) {
   return (
     <tr className="align-top">
       <td className="px-6 py-4">
@@ -203,49 +201,47 @@ function InvoiceRow({ inv, milestones }: { inv: InvoiceSummary; milestones: Mile
       </td>
       <td className="px-6 py-4">
         <StatusBadge status={inv.status} />
-        {waitingOnMilestone && (
-          <p className="mt-1 text-xs text-slate-500">Payment waits for {milestone.id} to be verified</p>
-        )}
       </td>
       <td className="px-6 py-4">
-        <TxHash hash={inv.tx_hash} mode={inv.tx_mode} />
+        <TxHash hash={payment?.tx_hash ?? null} mode={payment?.mode ?? null} />
       </td>
     </tr>
   )
 }
 
-const KIND_LABEL: Record<Transaction['kind'], string> = {
-  allocation: 'Budget allocated to wallet',
-  payment: 'Payment released',
-  invoice_submitted: 'Invoice submitted (document hash anchored)',
-  invoice_rejected: 'Invoice rejected',
-}
-
-function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: InvoiceSummary[] }) {
+function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: PublicInvoice[] }) {
   const inv = tx.invoice_id ? invoices.find((i) => i.id === tx.invoice_id) : undefined
-  const isOut = tx.kind === 'payment'
+  const money = movesMoney(tx)
+  const isOut = tx.operation === 'release'
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
       <div className="flex min-w-0 gap-3">
         <span
           className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-            tx.moves_money ? 'bg-brand-600' : 'border-2 border-slate-300 bg-white'
+            money ? 'bg-brand-600' : 'border-2 border-slate-300 bg-white'
           }`}
         />
         <div className="min-w-0">
           <p className="font-medium text-slate-800">
-            {KIND_LABEL[tx.kind] ?? tx.kind}
+            {TX_LABEL[tx.operation] ?? tx.operation}
             {inv && <span className="text-slate-500"> · {inv.invoice_number}</span>}
           </p>
-          <p className="text-xs text-slate-500">{formatDateTime(tx.created_at)}</p>
+          <p className="text-xs text-slate-500">
+            {formatDateTime(tx.created_at)}
+            {tx.status !== 'confirmed' && (
+              <span className={`ml-2 font-semibold ${tx.status === 'failed' ? 'text-red-600' : 'text-sky-700'}`}>
+                {tx.status === 'failed' ? 'Failed' : 'Pending'}
+              </span>
+            )}
+          </p>
           <div className="mt-1">
             <TxHash hash={tx.tx_hash} mode={tx.mode} />
           </div>
         </div>
       </div>
       <div className="text-right">
-        {tx.moves_money && tx.amount_cents !== null ? (
+        {money ? (
           <span className={`font-bold tabular-nums ${isOut ? 'text-slate-900' : 'text-brand-700'}`}>
             {isOut ? '−' : '+'}
             {formatMoney(tx.amount_cents)}
@@ -263,7 +259,6 @@ function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: InvoiceSummary
 function MilestoneBadge({ status }: { status: Milestone['status'] }) {
   const s = {
     pending: { label: 'Not verified yet', cls: 'bg-slate-100 text-slate-600' },
-    evidence_submitted: { label: 'Evidence submitted', cls: 'bg-sky-100 text-sky-800' },
     verified: { label: 'Verified', cls: 'bg-brand-50 text-brand-700' },
   }[status]
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}>{s.label}</span>

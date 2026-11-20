@@ -7,8 +7,10 @@ import { TxHash } from '../components/TxHash'
 import { useViewAs } from '../context/ViewAsContext'
 import { api } from '../lib/api'
 import { formatDate } from '../lib/dates'
+import { releaseTx } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
-import type { InvoiceStatus, InvoiceSummary } from '../types'
+import { useProjectCodes, useSuppliers } from '../lib/queries'
+import type { Invoice, InvoiceStatus } from '../types'
 
 export function MyInvoicesPage() {
   return (
@@ -33,8 +35,14 @@ function MyInvoices() {
   // The API returns only this supplier's invoices.
   const invoices = useQuery({
     queryKey: ['invoices', 'mine', user?.id],
-    queryFn: () => api.get<InvoiceSummary[]>('/invoices'),
+    queryFn: () => api.get<Invoice[]>('/invoices'),
   })
+  // Invoice rows carry only IDs; project data gives the code, milestone code and payment hash.
+  const { byId: projectById, codeOf } = useProjectCodes()
+  const { nameOf } = useSuppliers()
+  const milestoneCode = (inv: Invoice) =>
+    projectById.get(inv.project_id)?.milestones?.find((m) => m.id === inv.milestone_id)?.code ?? 'the milestone'
+  const paymentOf = (inv: Invoice) => releaseTx(projectById.get(inv.project_id)?.transactions ?? [], inv.id)
 
   const all = invoices.data ?? []
   const inTab = (key: string) => {
@@ -42,7 +50,7 @@ function MyInvoices() {
     return statuses ? all.filter((i) => statuses.includes(i.status)) : all
   }
   const shown = inTab(tab)
-  const sum = (list: InvoiceSummary[]) => list.reduce((s, i) => s + i.total_cents, 0)
+  const sum = (list: Invoice[]) => list.reduce((s, i) => s + i.total_cents, 0)
 
   return (
     <div className="space-y-6">
@@ -150,15 +158,18 @@ function MyInvoices() {
                   <tr key={inv.id} className="align-top">
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-900">{inv.invoice_number}</p>
-                      <p className="text-xs text-slate-500">{formatDate(inv.invoice_date)}</p>
+                      <p className="text-xs text-slate-500">
+                        {(user?.supplier_ids.length ?? 0) > 1 && <>{nameOf(inv.supplier_id)} · </>}
+                        {formatDate(inv.invoice_date)}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
                       <Link to={`/projects/${inv.project_id}`} className="text-slate-700 hover:text-brand-700">
-                        {inv.project_id}
+                        {codeOf(inv.project_id)}
                       </Link>
                       {inv.milestone_id && (
                         <p className="text-xs text-slate-500">
-                          Milestone {inv.milestone_id} ·{' '}
+                          Milestone {milestoneCode(inv)} ·{' '}
                           <Link
                             to={`/delivery/${inv.milestone_id}/evidence`}
                             className="font-medium text-brand-700 hover:underline"
@@ -173,10 +184,10 @@ function MyInvoices() {
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={inv.status} />
-                      <p className="mt-1 text-xs text-slate-500">{statusHint(inv)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{statusHint(inv, milestoneCode(inv))}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <TxHash hash={inv.tx_hash} mode={inv.tx_mode} />
+                      <TxHash hash={paymentOf(inv)?.tx_hash ?? null} mode={paymentOf(inv)?.mode ?? null} />
                     </td>
                   </tr>
                 ))}
@@ -190,7 +201,7 @@ function MyInvoices() {
 }
 
 // One plain sentence telling the supplier what happens next.
-function statusHint(inv: InvoiceSummary): string {
+function statusHint(inv: Invoice, milestoneCode: string): string {
   switch (inv.status) {
     case 'submitted':
       return 'Waiting for the AI check'
@@ -199,7 +210,7 @@ function statusHint(inv: InvoiceSummary): string {
     case 'on_hold':
       return 'On hold while an officer checks it'
     case 'approved':
-      return inv.milestone_id ? `Paid once ${inv.milestone_id} is verified` : 'Payment coming soon'
+      return inv.milestone_id ? `Paid once ${milestoneCode} is verified` : 'Payment coming soon'
     case 'payment_pending':
       return 'Payment is being sent'
     case 'paid':

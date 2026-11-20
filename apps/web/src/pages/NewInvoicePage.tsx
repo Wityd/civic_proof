@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { RequireRole } from '../components/RequireRole'
@@ -6,7 +6,9 @@ import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../lib/api'
 import { INVOICE_UPLOAD_PARTS, MAX_PDF_BYTES } from '../lib/apiContract'
 import { formatMoney, parseRandsToCents } from '../lib/money'
-import type { InvoiceSummary, NewInvoicePayload, Project, ProjectDetail } from '../types'
+import { useViewAs } from '../context/ViewAsContext'
+import { useProjects, useSuppliers } from '../lib/queries'
+import type { Invoice, NewInvoicePayload } from '../types'
 
 export function NewInvoicePage() {
   return (
@@ -43,20 +45,22 @@ function NewInvoiceForm() {
   // After the first submit attempt, errors update live as the user fixes fields.
   const [attempted, setAttempted] = useState(false)
 
-  const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.get<Project[]>('/projects') })
+  // POST /invoices needs supplier_id: one of the companies /me says this user may invoice for.
+  const { user } = useViewAs()
+  const { nameOf } = useSuppliers()
+  const ownSupplierIds = user?.supplier_ids ?? []
+  const [chosenSupplier, setChosenSupplier] = useState('')
+  const supplierId = chosenSupplier || (ownSupplierIds.length === 1 ? ownSupplierIds[0] : '')
+
+  const projects = useProjects()
   const project = projects.data?.find((p) => p.id === projectId)
-  const detail = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => api.get<ProjectDetail>(`/projects/${projectId}`),
-    enabled: !!projectId,
-  })
-  const milestones = detail.data?.milestones ?? []
+  const milestones = project?.milestones ?? []
 
   const submit = useMutation({
-    mutationFn: (form: FormData) => api.post<InvoiceSummary>('/invoices', form),
+    mutationFn: (form: FormData) => api.post<Invoice>('/invoices', form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project'] })
     },
   })
@@ -76,12 +80,14 @@ function NewInvoiceForm() {
     setProjectId(id)
     setMilestoneId('')
     // Categories depend on the project, so clear any that no longer fit.
-    const cats = projects.data?.find((p) => p.id === id)?.categories ?? []
+    const cats = projects.data?.find((p) => p.id === id)?.permitted_categories ?? []
     setLines((ls) => ls.map((l) => (cats.includes(l.category) ? l : { ...l, category: '' })))
   }
 
   function validate(): Errors {
     const e: Errors = {}
+    if (ownSupplierIds.length === 0) e.supplier = 'Your account is not linked to a supplier, so invoices cannot be submitted.'
+    else if (!supplierId) e.supplier = 'Choose which company is invoicing.'
     if (!projectId) e.project = 'Choose a project.'
     if (!invoiceNumber.trim()) e.invoiceNumber = 'Enter the invoice number.'
     if (!invoiceDate) e.invoiceDate = 'Enter the invoice date.'
@@ -107,12 +113,14 @@ function NewInvoiceForm() {
 
     const payload: NewInvoicePayload = {
       project_id: projectId,
+      supplier_id: supplierId,
       invoice_number: invoiceNumber.trim(),
       invoice_date: invoiceDate,
       milestone_id: milestoneId || null,
       line_items: lines.map((l, i) => ({
         description: l.description.trim(),
         category: l.category,
+        reference_sku: null,
         quantity: Number(l.quantity),
         unit_price_cents: parseRandsToCents(l.unitPrice)!,
         line_total_cents: lineTotals[i]!,
@@ -121,11 +129,12 @@ function NewInvoiceForm() {
     }
     const form = new FormData()
     form.append(INVOICE_UPLOAD_PARTS.file, file!)
-    form.append(INVOICE_UPLOAD_PARTS.data, JSON.stringify(payload))
+    form.append(INVOICE_UPLOAD_PARTS.invoice, JSON.stringify(payload))
     submit.mutate(form)
   }
 
   function reset() {
+    setChosenSupplier('')
     setProjectId('')
     setInvoiceNumber('')
     setInvoiceDate('')
@@ -157,6 +166,24 @@ function NewInvoiceForm() {
         <section className="rounded-card bg-white p-5 shadow-card sm:p-6">
           <h2 className="text-lg font-bold">Details</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {ownSupplierIds.length > 1 && (
+              <div className="sm:col-span-2">
+                <Field label="Submitting as" error={errors.supplier}>
+                  <select
+                    value={chosenSupplier}
+                    onChange={(e) => setChosenSupplier(e.target.value)}
+                    className={inputCls(errors.supplier)}
+                  >
+                    <option value="">Choose your company</option>
+                    {ownSupplierIds.map((id) => (
+                      <option key={id} value={id}>
+                        {nameOf(id)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            )}
             <Field label="Project" error={errors.project}>
               <select
                 value={projectId}
@@ -167,7 +194,7 @@ function NewInvoiceForm() {
                 <option value="">{projects.isPending ? 'Loading…' : 'Choose a project'}</option>
                 {projects.data?.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.id} · {p.name}
+                    {p.code} · {p.name}
                   </option>
                 ))}
               </select>
@@ -185,7 +212,7 @@ function NewInvoiceForm() {
                 </option>
                 {milestones.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.id} · {m.title}
+                    {m.code} · {m.title}
                   </option>
                 ))}
               </select>
@@ -247,7 +274,7 @@ function NewInvoiceForm() {
                     className={inputCls(errors[`cat-${l.key}`])}
                   >
                     <option value="">{project ? 'Choose' : 'Project first'}</option>
-                    {project?.categories.map((c) => (
+                    {project?.permitted_categories.map((c) => (
                       <option key={c} value={c}>
                         {categoryLabel(c)}
                       </option>
@@ -344,7 +371,9 @@ function NewInvoiceForm() {
 
         {/* Submit */}
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-          {hasErrors && <p className="text-sm text-red-600 sm:mr-auto">Please fix the fields marked in red.</p>}
+          {hasErrors && (
+            <p className="text-sm text-red-600 sm:mr-auto">{errors.supplier ?? 'Please fix the fields marked in red.'}</p>
+          )}
           {submit.error && (
             <p className="text-sm text-red-600 sm:mr-auto">Could not submit: {submit.error.message}</p>
           )}
@@ -361,7 +390,7 @@ function NewInvoiceForm() {
   )
 }
 
-function SubmittedCard({ invoice, onAnother }: { invoice: InvoiceSummary; onAnother: () => void }) {
+function SubmittedCard({ invoice, onAnother }: { invoice: Invoice; onAnother: () => void }) {
   return (
     <div className="mx-auto max-w-lg rounded-card bg-white p-8 text-center shadow-card">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-2xl text-brand-700">
