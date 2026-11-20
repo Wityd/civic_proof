@@ -127,13 +127,15 @@ async function handle(req: Request): Promise<Response> {
     }
     if (req.method === 'GET' && path === '/me') {
       const rows = await db(`users?id=eq.${actor}&select=id,display_name,role`, 'GET', undefined, token);
-      return response({ data: { ...rows[0], wallet_mode: context.mode } });
+      const suppliers = await db(`suppliers?user_id=eq.${actor}&select=id,name&order=name.asc,id.asc`, 'GET', undefined, token);
+      return response({ data: { ...rows[0], wallet_mode: context.mode, supplier_ids: suppliers.map((s: { id: string }) => s.id), suppliers } });
     }
     if (req.method === 'GET' && path === '/invoices') {
       requireRole('supplier', 'municipality', 'auditor');
       const project = requestUrl.searchParams.get('project_id'); const status = requestUrl.searchParams.get('status');
-      if (status && !['submitted','analysed','approved','on_hold','rejected','payment_pending','paid','payment_failed'].includes(status)) throw new ApiError('VALIDATION', 'Invalid invoice status.');
-      return response({ data: await db(`invoices?select=*&order=created_at.desc${project ? `&project_id=eq.${uuid(project)}` : ''}${status ? `&status=eq.${status}` : ''}`, 'GET', undefined, token) });
+      const statuses = status === null ? [] : [...new Set(status.split(',').map((s) => s.trim()))];
+      if (statuses.some((s) => !['submitted','analysed','approved','on_hold','rejected','payment_pending','paid','payment_failed'].includes(s))) throw new ApiError('VALIDATION', 'Invalid invoice status.');
+      return response({ data: await db(`invoices?select=*&order=created_at.desc${project ? `&project_id=eq.${uuid(project)}` : ''}${statuses.length ? `&status=in.(${statuses.join(',')})` : ''}`, 'GET', undefined, token) });
     }
     const invoiceRoute = path.match(/^\/invoices\/([^/]+)(?:\/(analyse|approve|hold|reject))?$/);
     if (invoiceRoute && req.method === 'GET' && !invoiceRoute[2]) {

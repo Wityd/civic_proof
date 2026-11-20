@@ -69,7 +69,11 @@ Deno.test({ name: 'live Supabase-first access controls and complete simulated mo
     for (const account of accounts) {
       const r = await fetch(`${root}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: anon, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, password: account.password }) });
       const s = await r.json(); assert(r.ok && s.access_token, `${account.role} login`); sessions[account.role] = { token: s.access_token, id: s.user.id };
-      assert((await request('/me', 'GET', undefined, account.role)).role === account.role, 'Trusted role from database');
+      const me = await request('/me', 'GET', undefined, account.role);
+      assert(me.role === account.role, 'Trusted role from database');
+      const owned = await rest(`suppliers?user_id=eq.${s.user.id}&select=id,name&order=name.asc,id.asc`, 'GET', undefined, account.role, 200);
+      assert(me.suppliers.length === owned.length && me.suppliers.every((v: { id: string; name: string }, i: number) => v.id === owned[i].id && v.name === owned[i].name), 'Me lists only owned suppliers');
+      assert(JSON.stringify(me.supplier_ids) === JSON.stringify(owned.map((v: { id: string }) => v.id)), 'Supplier IDs match owned records');
       const profiles = await rest('users?select=id,role', 'GET', undefined, account.role, 200); assert(profiles.length === 1 && profiles[0].id === s.user.id, 'Only own profile visible');
       await rest(`users?id=eq.${s.user.id}`, 'PATCH', { role: 'municipality' }, account.role, 403);
       await rest('transactions', 'POST', { mode: 'simulated' }, account.role, 403);
@@ -129,6 +133,11 @@ Deno.test({ name: 'live Supabase-first access controls and complete simulated mo
     const dashboard = await request(`/projects/${project}`);
     const serial = JSON.stringify(dashboard); for (const secret of ['document_path','document_sha256','contact_email','contact_phone','submitted_by']) assert(!serial.includes(`"${secret}"`), 'Public data is redacted');
     console.log('PASS delivery gating, duplicate evidence, community vs official verification, redaction and expected final balance');
+
+    const filtered = await request(`/invoices?project_id=${project}&status=paid,on_hold`, 'GET', undefined, 'municipality');
+    assert(filtered.length === 3 && filtered.every((i: { status: string }) => ['paid','on_hold'].includes(i.status)), 'Status lists include both paid invoices and the held invoice, excluding rejected');
+    await request('/invoices?status=paid,unknown', 'GET', undefined, 'municipality', 400);
+    await request('/invoices?status=paid,', 'GET', undefined, 'municipality', 400);
 
     const hugeA = await submit(tanks, 'RESERVE-A', 150000000, 'water_storage', 'TANK-10000L', 1, 150000000);
     const hugeB = await submit(tanks, 'RESERVE-B', 150000000, 'water_storage', 'TANK-10000L', 1, 150000000);
