@@ -35,7 +35,7 @@ try {
 
     $stage = 'database constraints'
     $null = ProjectSql (Get-Content -LiteralPath (Join-Path $repoRoot 'supabase/verify.sql') -Raw) $false
-    Pass '13 RLS-protected tables; database isolation and workflow constraints verified with rolled-back fixtures'
+    Pass '14 RLS-protected tables; database isolation, multichain wallet and workflow constraints verified with rolled-back fixtures'
 
     $stage = 'seed data and backend access'
     $projects = @(Invoke-RestMethod -Uri "$projectUrl/rest/v1/projects?select=code,budget_cents" -Headers $serviceHeaders)
@@ -51,7 +51,7 @@ try {
 
     $tableRows = @(ProjectSql "select tablename from pg_tables where schemaname='public' order by tablename")
     foreach ($table in $tableRows.tablename) { ExpectDenied "$projectUrl/rest/v1/${table}?select=*&limit=1" $anonHeaders }
-    Pass 'Anonymous direct reads denied on all 13 application tables'
+    Pass 'Anonymous direct reads denied on all 14 application tables'
 
     $stage='four role logins and access isolation'
     $credentials = @(Import-Clixml -LiteralPath (Join-Path $repoRoot '.local/demo-credentials.xml'))

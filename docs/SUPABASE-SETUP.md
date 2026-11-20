@@ -1,10 +1,15 @@
 # CivicProof Supabase setup
 
-Project: `CivicProof_Project` (`crshjvjrgnnypxbpjmob`). Branch: `mzoo`.
+Project: `CivicProof_Project` (`crshjvjrgnnypxbpjmob`). Branch: `p2/backend`.
 
 ## Applied configuration
 
-- 13 application tables in `public`, with UUID keys, foreign keys, indexes,
+P3's wallet update is applied: see [P3-INTEGRATION.md](P3-INTEGRATION.md).
+`project_wallets` stores one real wallet per project per chain. Transaction modes
+include `bsc`; operations include `register_milestone`. The table is currently
+empty until P3 supplies confirmed deployment addresses.
+
+- 14 application tables in `public`, with UUID keys, foreign keys, indexes,
   integer-cent money fields and validation constraints.
 - RLS enabled on every application table. Browser `anon` and `authenticated`
   roles have no direct table privileges or policies. The backend service role

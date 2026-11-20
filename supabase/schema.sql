@@ -23,6 +23,19 @@ create table public.projects (
   updated_at timestamptz not null default now()
 );
 
+-- On-chain wallet addresses only. Simulated mode has no invented EVM address.
+create table public.project_wallets (
+  project_id uuid not null references public.projects(id),
+  mode text not null check (mode in ('fuji','bsc')),
+  wallet_address text not null check (
+    wallet_address ~ '^0x[0-9a-fA-F]{40}$' and
+    wallet_address <> '0x0000000000000000000000000000000000000000'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (project_id, mode)
+);
+create unique index project_wallets_chain_address on public.project_wallets(mode, lower(wallet_address));
+
 create table public.suppliers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -134,9 +147,9 @@ create table public.transactions (
   invoice_id uuid,
   milestone_id uuid,
   operation text not null check (operation in
-    ('create_project','fund_project','submit_request','approve','reject','verify_milestone','release')),
+    ('create_project','fund_project','submit_request','approve','reject','register_milestone','verify_milestone','release')),
   amount_cents bigint not null default 0 check (amount_cents >= 0),
-  mode text not null check (mode in ('simulated','fuji')),
+  mode text not null check (mode in ('simulated','fuji','bsc')),
   status text not null default 'pending' check (status in ('pending','confirmed','failed')),
   tx_hash text,
   block_number bigint check (block_number >= 0),
@@ -147,10 +160,10 @@ create table public.transactions (
   foreign key (invoice_id, project_id) references public.invoices(id, project_id),
   foreign key (milestone_id, project_id) references public.milestones(id, project_id),
   check (operation not in ('submit_request','approve','reject','release') or invoice_id is not null),
-  check (operation <> 'verify_milestone' or milestone_id is not null),
+  constraint transactions_milestone_required check (operation not in ('register_milestone','verify_milestone') or milestone_id is not null),
   check (operation not in ('release','fund_project') or amount_cents > 0),
   check (status <> 'confirmed' or (tx_hash is not null and confirmed_at is not null)),
-  check (mode <> 'fuji' or status <> 'confirmed' or block_number is not null)
+  constraint transactions_chain_confirmation check (mode not in ('fuji','bsc') or status <> 'confirmed' or block_number is not null)
 );
 create unique index transactions_one_live_release on public.transactions(invoice_id)
   where operation = 'release' and status in ('pending','confirmed');
@@ -276,13 +289,13 @@ create trigger approvals_guard before insert on public.approvals
 do $$
 declare table_name text;
 begin
-  foreach table_name in array array['users','projects','suppliers','milestones','reference_prices',
+  foreach table_name in array array['users','projects','project_wallets','suppliers','milestones','reference_prices',
     'invoices','invoice_items','ai_reviews','approvals','transactions','evidence','verifications','concerns'] loop
     execute format('alter table public.%I enable row level security', table_name);
     execute format('revoke all on table public.%I from public, anon, authenticated', table_name);
     execute format('grant select, insert, update, delete on table public.%I to service_role', table_name);
   end loop;
-  foreach table_name in array array['users','projects','suppliers','milestones','reference_prices','invoices','transactions','concerns'] loop
+  foreach table_name in array array['users','projects','project_wallets','suppliers','milestones','reference_prices','invoices','transactions','concerns'] loop
     execute format('create trigger touch_updated_at before update on public.%I for each row execute function public.civicproof_touch_updated_at()', table_name);
   end loop;
 end;

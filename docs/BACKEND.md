@@ -8,14 +8,15 @@ Supabase first; application code follows once the hosted setup has been verified
 | --- | --- |
 | Target project | `crshjvjrgnnypxbpjmob` |
 | Project URL | https://crshjvjrgnnypxbpjmob.supabase.co |
-| Git branch | `mzoo` |
+| Git branch | `p2/backend` |
 | Hosted schema inspection | Verified 2026-11-20 via Management API: project `CivicProof_Project`, `ACTIVE_HEALTHY` |
-| Database tables, constraints and indexes | Applied: 13 tables with RLS, indexed relationships and workflow constraints |
+| Database tables, constraints and indexes | Applied: 14 tables with RLS, indexed relationships and workflow constraints |
 | Private storage buckets | Created and verified: `invoices`, `evidence`, 10 MiB limits and restricted MIME types |
 | Demo Auth users and application roles | Created: citizen, supplier, municipality, auditor; all four logins and trusted roles verified |
 | Seed data | CP001, three suppliers, M1, three reference prices and simulated opening ledger seeded |
 | Live verification | Passed: Auth, access denials, private file operations, database guards; see setup and verification documents |
-| Express API and shared TypeScript types | Deferred until Supabase is ready |
+| Shared wallet types | Added `packages/shared/types.ts`: three ledger modes and milestone registration |
+| Express API | Still deferred; Supabase setup is ready |
 
 Token-based local connection configuration and private entry instructions are in
 [SUPABASE-CONNECTION.md](SUPABASE-CONNECTION.md). Configuration alone does not
@@ -68,6 +69,7 @@ All tables below also have `created_at timestamptz`. Mutable records have
 | --- | --- |
 | `users` | `id` FK to Auth, `display_name`, `role` (`citizen`, `supplier`, `municipality`, `auditor`). Role is controlled by the backend, never user metadata. |
 | `projects` | `id`, unique `code`, `name`, `description`, `location`, `budget_cents`, `permitted_categories text[]`, `created_by` FK users. |
+| `project_wallets` | `project_id` FK projects, `mode` (`fuji`, `bsc`), `wallet_address`, timestamps. Primary key `(project_id, mode)`; case-insensitive unique wallet address per chain. No invented address for simulated mode. |
 | `suppliers` | `id`, `name`, unique `registration_no`, `registered_on`, `verified boolean`, private `contact_name`, `contact_email`, `contact_phone`, `wallet_address`, nullable `user_id` FK users. A user may represent multiple demo suppliers if explicitly assigned. |
 | `milestones` | `id`, `project_id` FK, `code`, `title`, `description`, `status` (`pending`, `verified`), nullable `verified_at`. Unique `(project_id, code)`. |
 | `reference_prices` | `id`, unique `sku`, `description`, `category`, `unit`, `unit_price_cents`, `source`, `effective_on`. |
@@ -75,7 +77,7 @@ All tables below also have `created_at timestamptz`. Mutable records have
 | `invoice_items` | `id`, `invoice_id` FK, zero-based `line_index`, `description`, `category`, nullable `reference_sku` FK reference_prices.sku, `quantity numeric`, `unit_price_cents`, `line_total_cents`. Unique `(invoice_id, line_index)`. |
 | `ai_reviews` | `id`, `invoice_id` FK, `extraction jsonb`, `checks jsonb`, `flags text[]`, `benchmarks jsonb`, `potential_excess_cents`, `recommendation`, `explanation`, `mode` (`rules`, `llm`). Append reviews and select the latest deterministically. |
 | `approvals` | `id`, `invoice_id` FK, `actor_id` FK users, `decision` (`approve`, `hold`, `reject`), `reason`, `overrode_ai boolean`, nullable `ai_review_id` FK. Append-only decision history. |
-| `transactions` | `id`, `project_id` FK, nullable `invoice_id` FK, nullable `milestone_id` FK, `operation`, `amount_cents`, `mode` (`simulated`, `fuji`), `status` (`pending`, `confirmed`, `failed`), nullable `tx_hash`, `block_number`, `error_code`, `confirmed_at`. Operations: `create_project`, `fund_project`, `submit_request`, `approve`, `reject`, `verify_milestone`, `release`. |
+| `transactions` | `id`, `project_id` FK, nullable `invoice_id` FK, nullable `milestone_id` FK, `operation`, `amount_cents`, `mode` (`simulated`, `fuji`, `bsc`), `status` (`pending`, `confirmed`, `failed`), nullable `tx_hash`, `block_number`, `error_code`, `confirmed_at`. Operations: `create_project`, `fund_project`, `submit_request`, `approve`, `reject`, `register_milestone`, `verify_milestone`, `release`. |
 | `evidence` | `id`, `milestone_id` FK, `uploaded_by` FK users, `object_path`, `document_sha256`, `caption`, nullable `duplicate_of` FK evidence. Duplicate hashes remain storable and are flagged. |
 | `verifications` | `id`, `milestone_id` FK, `actor_id` FK users, `kind` (`community`, `official`), `note`. At most one record per `(milestone_id, actor_id, kind)`. Community confirmation never authorizes payment. |
 | `concerns` | `id`, `project_id` FK, `raised_by` FK users, `message`, `status` (`open`, `responded`), nullable `response`, `responded_by` FK users, `responded_at`. |
@@ -146,6 +148,14 @@ Invoices should be submitted during the demo, with a separate opt-in fixture mod
 if needed for testing.
 
 ## Invoice and payment rules
+
+P3's factory and multichain changes are accepted; see
+[P3-INTEGRATION.md](P3-INTEGRATION.md). `FACTORY_ADDRESS` is chain-specific;
+per-project addresses are stored in `project_wallets`. The active ledger mode is
+`simulated`, `fuji` or `bsc`. Milestones must be registered on the selected project
+wallet before linked invoice submission. Registration does not verify delivery.
+Hold stays off-chain. P3 still needs to supply actual deployment addresses and
+registration receipts; no on-chain addresses or transactions have been invented.
 
 Allowed transitions:
 

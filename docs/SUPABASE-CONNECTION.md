@@ -1,6 +1,6 @@
 # Connect CivicProof Supabase to Codex
 
-Branch: `mzoo`. Project reference: `crshjvjrgnnypxbpjmob`.
+Branch: `p2/backend`. Project reference: `crshjvjrgnnypxbpjmob`.
 
 The project-scoped MCP connection is in `.codex/config.toml`. It connects to
 Supabase's hosted MCP endpoint and enables database, debugging, development and
