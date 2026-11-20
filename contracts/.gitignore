@@ -1,0 +1,9 @@
+node_modules
+.env
+artifacts
+cache
+typechain-types
+coverage
+coverage.json
+# Local-network deployments are throwaway; fuji.json is public and IS committed.
+deployments/localhost.json
