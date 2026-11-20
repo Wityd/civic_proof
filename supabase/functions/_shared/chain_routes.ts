@@ -21,6 +21,17 @@ const defaultChain = (mode: ChainMode) => {
   return adapters.get(mode)!;
 };
 
+async function requireConfiguration(deps: ChainDeps) {
+  const mode = await deps.rpc('cp_wallet_mode', {}) as ChainMode;
+  try { return (deps.chain ?? defaultChain)(mode); }
+  catch { throw deps.fail('CHAIN_NOT_READY', 'Configure the correct testnet deployer signing secret before preparing chain actions.', 503); }
+}
+
+export async function chainStatus(deps: ChainDeps, mode: ChainMode, wallet: string, project: string) {
+  try { return await (deps.chain ?? defaultChain)(mode).readiness(wallet,project); }
+  catch { throw deps.fail('CHAIN_NOT_READY','Signing configuration or read-only chain preflight is not ready.',503); }
+}
+
 /** Chain error → the API's existing codes, so the frontend handles both modes the same way. */
 const API_ERRORS: Record<string, [string, number]> = {
   MILESTONE_NOT_VERIFIED: ['MILESTONE_NOT_VERIFIED', 409],
@@ -48,19 +59,24 @@ async function execute(deps: ChainDeps, prepared: Json) {
   if (tx.tx_hash) {
     r = await adapter.receipt(tx.tx_hash); // retry of a timed-out call: never send twice
   } else {
-    const onSent = (hash: string) => deps.rpc('cp_chain_settle', { p_tx_id: tx.id, p_status: 'pending', p_tx_hash: hash });
+    const owner = crypto.randomUUID();
+    const claimed = await deps.rpc('cp_chain_claim', { p_tx_id: tx.id, p_owner: owner });
+    if (!claimed) return { ...prepared, chain_status: 'pending', explorer_url: null };
+    const onSent = (hash: string) => deps.rpc('cp_chain_record_hash', { p_tx_id: tx.id, p_owner: owner, p_hash: hash });
     try {
       r = await call(adapter, a, onSent);
     } catch (e) {
       // The RPC failed before anything was broadcast: undo prepare so the user can retry.
       await deps.rpc('cp_chain_settle', { p_tx_id: tx.id, p_status: 'failed', p_error: 'CHAIN_UNAVAILABLE' });
-      throw deps.fail('CHAIN_UNAVAILABLE', `The ${a.mode} network could not be reached; nothing was sent. (${String((e as Error)?.message ?? e).split('\n')[0]})`, 502);
+      await deps.rpc('cp_chain_release_claim', { p_tx_id: tx.id });
+      throw deps.fail('CHAIN_UNAVAILABLE', `The ${a.mode} network could not be reached before broadcasting; retry later.`, 502);
     }
   }
 
   const settled = await deps.rpc('cp_chain_settle', {
     p_tx_id: tx.id, p_status: r.status, p_tx_hash: r.txHash ?? null, p_block: r.blockNumber ?? null, p_error: r.error ?? null,
   });
+  if (r.status !== 'pending') await deps.rpc('cp_chain_release_claim', { p_tx_id: tx.id });
   if (r.status === 'failed') {
     const [code, status] = API_ERRORS[r.error ?? ''] ?? ['CHAIN_REVERTED', 502];
     throw deps.fail(code, `Refused on-chain by the ProjectWallet contract (${r.detail ?? r.error}).`, status);
@@ -92,6 +108,7 @@ export const chainHttpStatus = (data: Json, okStatus = 200) => (data?.chain_stat
 
 /** POST /invoices in chain mode. The caller has already stored the PDF. */
 export async function chainSubmitInvoice(deps: ChainDeps, actor: string, invoice: Json, items: Json[]) {
+  await requireConfiguration(deps);
   const prepared = await deps.rpc('cp_chain_submit_invoice', { p_actor: actor, p_invoice: invoice, p_items: items });
   const done = await execute(deps, prepared);
   return { ...prepared.invoice, chain_tx: done.tx, chain_status: done.chain_status, explorer_url: done.explorer_url };
@@ -100,6 +117,7 @@ export async function chainSubmitInvoice(deps: ChainDeps, actor: string, invoice
 /** POST /invoices/:id/approve|hold|reject in chain mode. Hold never touches the chain. */
 export async function chainDecide(deps: ChainDeps, actor: string, invoiceId: string, decision: 'approve' | 'hold' | 'reject', reason: string | null) {
   if (decision === 'hold') return deps.rpc('cp_decide', { p_actor: actor, p_invoice_id: invoiceId, p_decision: 'hold', p_reason: reason });
+  await requireConfiguration(deps);
   const prepared = await deps.rpc('cp_chain_prepare', { p_actor: actor, p_op: decision, p_ref: invoiceId, p_reason: reason });
   const done = await execute(deps, prepared);
   const status = done.chain_status === 'confirmed' ? (decision === 'approve' ? 'approved' : 'rejected') : 'pending_chain';
@@ -108,6 +126,7 @@ export async function chainDecide(deps: ChainDeps, actor: string, invoiceId: str
 
 /** POST /payments/:invoiceId/execute in chain mode. Idempotent: never pays twice. */
 export async function chainExecutePayment(deps: ChainDeps, actor: string, invoiceId: string) {
+  await requireConfiguration(deps);
   const prepared = await deps.rpc('cp_chain_prepare', { p_actor: actor, p_op: 'release', p_ref: invoiceId });
   const done = await execute(deps, prepared);
   return { ...done.tx, chain_status: done.chain_status, explorer_url: done.explorer_url };
@@ -115,6 +134,7 @@ export async function chainExecutePayment(deps: ChainDeps, actor: string, invoic
 
 /** POST /milestones/:id/register|verify in chain mode. */
 export async function chainMilestone(deps: ChainDeps, actor: string, milestoneId: string, action: 'register' | 'verify') {
+  await requireConfiguration(deps);
   const op = action === 'register' ? 'register_milestone' : 'verify_milestone';
   const prepared = await deps.rpc('cp_chain_prepare', { p_actor: actor, p_op: op, p_ref: milestoneId });
   const done = await execute(deps, prepared);
@@ -130,6 +150,7 @@ export async function chainReconcile(deps: ChainDeps) {
     const r = await adapter.receipt(p.tx.tx_hash);
     if (r.status !== 'pending') {
       await deps.rpc('cp_chain_settle', { p_tx_id: p.tx.id, p_status: r.status, p_tx_hash: p.tx.tx_hash, p_block: r.blockNumber ?? null, p_error: r.error ?? null });
+      await deps.rpc('cp_chain_release_claim', { p_tx_id: p.tx.id });
     }
     results.push({ tx_id: p.tx.id, operation: p.tx.operation, tx_hash: p.tx.tx_hash, status: r.status, explorer_url: adapter.txUrl(p.tx.tx_hash) });
   }
