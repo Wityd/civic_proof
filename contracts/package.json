@@ -13,7 +13,9 @@
     "setup:demo:local": "hardhat run scripts/setup-demo.ts --network localhost",
     "setup:demo:fuji": "hardhat run scripts/setup-demo.ts --network fuji",
     "setup:demo:bsc": "hardhat run scripts/setup-demo.ts --network bscTestnet",
-    "export-abi": "hardhat run scripts/export-abi.ts"
+    "export-abi": "hardhat run scripts/export-abi.ts",
+    "export-ledger:fuji": "hardhat run scripts/export-ledger.ts --network fuji",
+    "export-ledger:bsc": "hardhat run scripts/export-ledger.ts --network bscTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "5.0.0",
