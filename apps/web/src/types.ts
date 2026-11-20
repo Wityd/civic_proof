@@ -160,6 +160,16 @@ export interface Wallet {
   contract_address: string | null
 }
 
+// Response of POST /milestones/:id/evidence
+export interface Evidence {
+  id: string
+  milestone_id: string
+  photo_hash: string
+  note: string | null
+  flags: FlagCode[]
+  created_at: string
+}
+
 export interface Supplier {
   id: string
   name: string

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { AuditPage } from './pages/AuditPage'
+import { EvidencePage } from './pages/EvidencePage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { MyInvoicesPage } from './pages/MyInvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'review', element: <ReviewQueuePage /> },
       { path: 'review/:id', element: <ReviewInvoicePage /> },
       { path: 'audit', element: <AuditPage /> },
+      { path: 'delivery/:milestoneId/evidence', element: <EvidencePage /> },
       // Pages 2–9 get added here as we build them.
       { path: '*', element: <ComingSoonPage /> },
     ],

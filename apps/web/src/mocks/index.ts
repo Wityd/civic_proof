@@ -4,12 +4,13 @@
 //
 // VITE_MOCK_SCENARIO=start → all 4 demo invoices just submitted, wallet untouched.
 // VITE_MOCK_SCENARIO=end (default) → the finished demo story.
-import { INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
+import { EVIDENCE_UPLOAD_PARTS, INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
 import { getViewAsId } from '../lib/viewAs'
 import type {
   AiReview,
   ApiResponse,
   Approval,
+  Evidence,
   InvoiceDetail,
   InvoiceSummary,
   Milestone,
@@ -382,6 +383,52 @@ function verifyMilestone(id: string): MockResult {
   return ok(milestone)
 }
 
+// ---------- POST /milestones/:id/evidence ----------
+
+const seenPhotoHashes = new Set<string>()
+
+async function sha256(file: File): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function submitEvidence(id: string, body: unknown): Promise<MockResult> {
+  const denied = requireRole('supplier')
+  if (denied) return denied
+  const milestone = milestones.find((m) => m.id === id)
+  if (!milestone) return notFound('Milestone')
+  if (milestone.status === 'verified') return fail(409, 'INVALID_STATE', 'This milestone is already verified')
+  if (!(body instanceof FormData)) return fail(400, 'BAD_REQUEST', 'Expected multipart form data')
+
+  const file = body.get(EVIDENCE_UPLOAD_PARTS.file)
+  if (!(file instanceof File)) return fail(400, 'BAD_REQUEST', 'Photo is missing')
+  const raw = body.get(EVIDENCE_UPLOAD_PARTS.data)
+  let note: string | null
+  try {
+    note = typeof raw === 'string' ? (JSON.parse(raw).note ?? null) : null
+  } catch {
+    return fail(400, 'BAD_REQUEST', 'Evidence data is not valid JSON')
+  }
+
+  // Same photo uploaded before → likely reused evidence.
+  const hash = await sha256(file)
+  if (seenPhotoHashes.has(hash)) {
+    return fail(409, 'DUPLICATE_EVIDENCE', 'This exact photo was already submitted as evidence')
+  }
+  seenPhotoHashes.add(hash)
+  milestone.status = 'evidence_submitted'
+
+  const evidence: Evidence = {
+    id: `ev_${Date.now()}`,
+    milestone_id: milestone.id,
+    photo_hash: hash,
+    note,
+    flags: [],
+    created_at: now(),
+  }
+  return ok(evidence, 201)
+}
+
 // ---------- router ----------
 
 export async function mockRequest(
@@ -401,6 +448,7 @@ export async function mockRequest(
   }
   if ((m = path.match(/^\/payments\/([^/]+)\/execute$/))) return executePayment(m[1])
   if ((m = path.match(/^\/milestones\/([^/]+)\/verify$/))) return verifyMilestone(m[1])
+  if ((m = path.match(/^\/milestones\/([^/]+)\/evidence$/))) return submitEvidence(m[1], body)
 
   return fail(501, 'NOT_MOCKED', `No mock yet for ${method} ${path}`)
 }
