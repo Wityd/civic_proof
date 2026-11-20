@@ -1,7 +1,7 @@
 # CivicProof Supabase — P2's current handoff
 
 Updated 20 November 2026. Owner: Mzoo (P2). Code branch: `p2/backend`.
-This describes the deployed backend, including the changes in `0240e18`.
+This describes the deployed backend, including the completed P1 handoff requests.
 Those changes are live even though the older document/code on `main` may differ.
 Nothing in this handoff requires merging branches.
 
@@ -82,7 +82,7 @@ and constraints are detailed in the SQL.
 | `approvals` | `id`, `invoice_id`, `actor_id`, `decision`, `reason`, `overrode_ai`, `ai_review_id` | The human decision and the review it considered |
 | `transactions` | `id`, `project_id`, `invoice_id`, `milestone_id`, `operation`, `amount_cents`, `mode`, `status`, `tx_hash`, `block_number`, `error_code`, `confirmed_at` | Mode-specific ledger and chain receipts |
 | `evidence` | `id`, `milestone_id`, `uploaded_by`, `object_path`, `document_sha256`, `caption`, `duplicate_of` | Photo metadata; file bytes live in private Storage |
-| `verifications` | `id`, `milestone_id`, `actor_id`, `kind`, `note` | Community evidence or an official verification; no `answer` column yet |
+| `verifications` | `id`, `milestone_id`, `actor_id`, `kind`, `note`, `answer` | Community evidence or official verification; community answers are `yes`, `no`, `not_sure`, or legacy null |
 | `concerns` | `id`, `project_id`, `raised_by`, `message`, `status`, `response`, `responded_by`, `responded_at` | Citizen concerns and municipality responses |
 
 The unexposed `private` schema contains `runtime_config` (active wallet mode),
@@ -97,12 +97,12 @@ Responses use `{ "data": ... }`; errors use
 
 | Need | Call | Notes |
 | --- | --- | --- |
-| Public project cards/details | `GET /projects`, `GET /projects/:id` | Redacted responses; default mode comes from server configuration |
+| Public project cards/details | `GET /projects`, `GET /projects/:id` | Redacted responses including `milestones`; default mode comes from server configuration |
 | Project wallet and ledger | `GET /projects/:id/wallet`, `GET /projects/:id/transactions` | Mode is included; do not sum different chains |
 | Supplier names | `GET /suppliers` | Public safe fields; invoice list itself has no `supplier_name` |
 | Current user and owned suppliers | `GET /me` | Real login required; see response below |
 | Review queue / own invoices | `GET /invoices?status=submitted,analysed,on_hold,approved,payment_failed` | Comma-separated support is deployed; add `project_id=UUID` if needed |
-| Invoice details | `GET /invoices/:id` | Raw invoice plus `items`, `ai_reviews`, `approvals`, `transactions` arrays |
+| Invoice details | `GET /invoices/:id` | Raw invoice plus `items`, `ai_reviews`, `approvals`, `transactions`; each approval includes `actor_display_name` |
 | Submit invoice | `POST /invoices` | Multipart `file` plus `invoice` JSON string |
 | Analyse | `POST /invoices/:id/analyse` | Municipality; rules analyse submitted manual line items |
 | Human decision | `POST /invoices/:id/approve`, `/hold`, `/reject` | Municipality; JSON `{reason}`; see rules below |
@@ -110,7 +110,7 @@ Responses use `{ "data": ... }`; errors use
 | Register milestone | `POST /milestones/:id/register` | Municipality; JSON `{}` |
 | Officially verify | `POST /milestones/:id/verify` | Municipality/auditor; JSON `{}` |
 | Upload delivery photo | `POST /milestones/:id/evidence` | Citizen/supplier; multipart `file`, optional `caption` |
-| Community confirmation | `POST /milestones/:id/confirm` | Citizen; JSON `{note}`; currently returns an array of inserted records, HTTP 201 |
+| Community confirmation | `POST /milestones/:id/confirm` | Citizen; JSON `{answer, note}`; returns an array of inserted records including `answer`, HTTP 201 |
 | Raise/respond to concern | `POST /projects/:id/concerns`, `POST /concerns/:id/respond` | Citizen sends `{message}`; municipality sends `{response}` |
 | Check pending chain work | `POST /chain/reconcile` | Municipality/auditor; JSON `{}`; checks recorded hashes |
 
@@ -174,19 +174,20 @@ bytes, computes SHA-256 and records metadata. For permitted downloads use
 `supabase.storage.from('invoices').createSignedUrl(document_path, 60)`.
 Storage RLS checks ownership/staff permissions; public dashboards have no private paths.
 
-## P1's remaining requests: what exists and what is pending
+## P1's requests: completed backend contract
 
 | Request | Current truth | What P1 can use now |
 | --- | --- | --- |
 | Real login | Four Auth accounts exist; frontend must sign in | Supabase JS login and user token; passwords shared privately |
-| Milestones embedded in project response | Not implemented; no GET milestone Edge route yet | Direct Supabase milestone read below, protected by existing public-read policy |
+| Milestones embedded in project response | Deployed through `get_public_dashboard`, `/projects` and `/projects/:id` | `project.milestones`: `{id, code, title, description, status, verified_at}[]`; empty projects return `[]` |
 | Supplier IDs | Deployed in `/me` | `supplier_ids` and named `suppliers` array |
-| Yes / No / Not sure column | Not implemented; `verifications` currently stores `note` | `{note: '[yes] ...'}`, `[no]` or `[not_sure]` as P1 proposed |
-| Approver display names | Not embedded; approvals contain `actor_id` | Show actor ID until the backend adds safe display-name enrichment; other users' profiles are not generally readable |
+| Yes / No / Not sure column | Deployed as `verifications.answer` | Send `{answer: 'yes'}`, `'no'` or `'not_sure'` plus optional `note`; note-only requests remain supported with null answer |
+| Approver display names | Deployed in invoice detail approvals | Use `approval.actor_display_name` beside `actor_id`; safe for the invoice's authorised supplier and municipality/auditor |
 | Several review statuses | Deployed | Comma-separated `status` parameter |
 | Supplier names on invoice list | Not embedded | Look up `supplier_id` using `GET /suppliers` |
 
-The milestone table can already supply the fields P1 requested:
+Milestones are embedded in both Edge project responses and the public dashboard
+RPC. Direct Supabase reads are also available:
 
 ```ts
 const { data: milestones, error } = await supabase
@@ -199,6 +200,17 @@ const { data: milestones, error } = await supabase
 Milestone `status` is `pending` or `verified`. Registration is a separate ledger
 operation, not a third milestone status. Community confirmation never counts as
 official verification and never unlocks a payment.
+
+Example confirmation body: `{answer: 'not_sure', note: 'I could not visit the site.'}`.
+Unknown answer values return HTTP 400. Answers are community evidence only;
+official verification records do not accept an answer. Existing rows remain null
+unless an answer was explicitly recorded. The API does not infer old note prefixes.
+
+Approver names are resolved from trusted `users.display_name` when invoice details
+are read. `actor_display_name` is the current name, not a historical snapshot.
+The enrichment does not expose emails or grant broad access to other profiles.
+The audit page can continue fetching invoice details to read the enriched approvals.
+Direct `supabase.from('approvals')` reads still return ordinary table fields.
 
 ## Payment rules and current chain setup
 
@@ -230,13 +242,19 @@ PDF extraction and LLM explanations remain P4's integration work.
 
 ## Verification and ownership
 
-Edge version 9 includes the supplier fields and status-list fixes. Strict Deno
+Edge version 10 includes all requested backend fields. Strict Deno
 checking and read-only live checks passed for all four roles. The simulator and
 chain scenarios are documented in [SUPABASE-VERIFICATION.md](SUPABASE-VERIFICATION.md).
 `scripts/Test-CivicProofFrontendAccess.ps1` reruns the read-only login/ownership/filter
 checks while Fuji stays active. `scripts/Test-CivicProofChainReadiness.ps1` checks
 signer configuration without sending a payment.
 
+`scripts/Test-SupabaseFirst.ps1 -FrontendHandoffOnly` checks all P1 handoff features
+against the live API with temporary metadata fixtures and cleanup. It never
+switches the active mode or calls the blockchain. The expanded local contract
+suite also checks milestone redaction, answer constraints and approver access.
+
 P1 connects the UI on their branch. P2 owns schema, RLS, Storage and Edge changes
 on `p2/backend`. P3 owns contracts/deployments and helps integrate the chain adapter.
-This document does not mean the pending milestone/answer/name additions are deployed.
+All six P1 backend requests are covered. Frontend sign-in and UI adaptation remain
+P1's work; demo login details and the anon key are shared privately.
