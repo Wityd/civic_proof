@@ -22,6 +22,8 @@ export function ReviewInvoicePage() {
 }
 
 const POLL_MS = 1500
+// While a chain payment is still confirming, ask the API to re-check it this often.
+const RECHECK_MS = 5000
 
 function ReviewInvoice() {
   const { id = '' } = useParams()
@@ -349,6 +351,21 @@ function PaymentPanel({
   const blocked = milestone && milestone.status !== 'verified'
   const blockedError = pay.error instanceof ApiError && pay.error.code === 'MILESTONE_NOT_VERIFIED'
 
+  // A slow chain can leave a payment pending after the request returns. Re-reading the
+  // invoice alone never settles it, so re-ask the API: for a payment that already has a
+  // hash it only checks the receipt and records the result. It never sends twice.
+  const recheck = useMutation({
+    mutationFn: () => api.post(`/payments/${inv.id}/execute`),
+    onSuccess: onDone,
+  })
+  const { mutate: recheckNow, isPending: rechecking } = recheck
+  useEffect(() => {
+    // One check at a time: the next one is scheduled only after the previous finished.
+    if (inv.status !== 'payment_pending' || rechecking || pay.isPending) return
+    const timer = setTimeout(() => recheckNow(), RECHECK_MS)
+    return () => clearTimeout(timer)
+  }, [inv.status, rechecking, pay.isPending, recheckNow])
+
   if (inv.status === 'paid') {
     return (
       <Card>
@@ -370,6 +387,11 @@ function PaymentPanel({
           <p className="font-semibold text-slate-800">Releasing payment…</p>
         </div>
         <p className="mt-2 text-sm text-slate-500">Waiting for the ledger to confirm. This page updates by itself.</p>
+        {payment?.tx_hash && (
+          <div className="mt-3">
+            <TxHash hash={payment.tx_hash} mode={payment.mode ?? null} />
+          </div>
+        )}
       </Card>
     )
   }
