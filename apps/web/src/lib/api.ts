@@ -25,7 +25,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   let json: ApiResponse<T>
 
   if (USE_MOCKS) {
-    const res = await mockRequest(method, path)
+    const res = await mockRequest(method, path, body)
     status = res.status
     json = res.body as ApiResponse<T>
   } else {

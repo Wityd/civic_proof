@@ -129,6 +129,16 @@ export interface Transaction {
   created_at: string
 }
 
+// JSON part of POST /invoices (sent next to the PDF)
+export interface NewInvoicePayload {
+  project_id: string
+  invoice_number: string
+  invoice_date: string
+  milestone_id: string | null
+  line_items: Omit<LineItem, 'reference_sku'>[]
+  total_cents: number
+}
+
 export interface InvoiceDetail extends InvoiceSummary {
   line_items: LineItem[]
   ai_review: AiReview | null
