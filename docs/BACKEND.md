@@ -9,7 +9,7 @@ Supabase first; application code follows once the hosted setup has been verified
 | Target project | `crshjvjrgnnypxbpjmob` |
 | Project URL | https://crshjvjrgnnypxbpjmob.supabase.co |
 | Git branch | `mzoo` |
-| Hosted schema inspection | Pending: Supabase project tools are unavailable in this chat |
+| Hosted schema inspection | Verified 2026-11-20 via Management API: project `CivicProof_Project`, `ACTIVE_HEALTHY`; no public tables, no buckets, zero Auth users |
 | Database tables, constraints and indexes | Proposed below; not applied or verified |
 | Private storage buckets | Pending |
 | Demo Auth users and application roles | Pending |

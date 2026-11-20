@@ -2,10 +2,13 @@
 # an Authorization header intended for Codex, not for display or logging.
 [CmdletBinding()]
 param(
-    [string]$TokenPath = (Join-Path (Split-Path $PSScriptRoot -Parent) '.local/supabase-token.xml')
+    [string]$TokenPath
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($TokenPath)) {
+    $TokenPath = Join-Path (Split-Path $PSScriptRoot -Parent) '.local/supabase-token.xml'
+}
 if (-not (Test-Path -LiteralPath $TokenPath -PathType Leaf)) {
     throw 'Supabase token is not configured. Run scripts/Set-SupabaseToken.ps1 privately first.'
 }

@@ -63,14 +63,19 @@ tools to an already running chat or make the token available to Work Cloud.
 
 ## Current verification boundary
 
-The configuration and helper scripts can be checked locally without a real
-token. Live connection, database changes, Auth users and Storage setup remain
-pending until you enter the token and the connection successfully loads.
+The saved token was verified against the live Management API on 2026-11-20.
+The project is `CivicProof_Project`, status `ACTIVE_HEALTHY`, region `eu-west-1`.
+A read-only SQL inspection returned no public tables, no Storage buckets and
+zero Auth users. Database changes, demo users and Storage setup remain pending.
+MCP tools were still not exposed in the current chat; direct Management API
+access works using the same local credential helper.
 
 Verified during setup: the installed Codex CLI recognises `civicproof_supabase`
 and its header helper; both scripts parse; a dummy token survives an encrypted
 file round-trip and produces the expected header without printing it; Git ignores
-the local credential path. No real token or hosted project was used for these checks.
+the local credential path. Those initial checks used a dummy token; the later live
+inspection used the saved credential without displaying it. The helper's default
+token-path resolution was also corrected for Windows PowerShell.
 
 ## Official references
 
