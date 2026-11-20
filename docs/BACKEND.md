@@ -56,7 +56,7 @@ Responses use `{data: ...}` or `{error: {code, message}}`.
 | Route | Behavior |
 | --- | --- |
 | `GET /health`, `/projects`, `/projects/:id`, `/projects/:id/wallet`, `/projects/:id/transactions`, `/suppliers`, `/suppliers/:id` | Public health and redacted reads |
-| `GET /me`, `/invoices`, `/invoices/:id` | Verified identity and RLS-scoped private reads |
+| `GET /me`, `/invoices`, `/invoices/:id` | Verified identity, owned suppliers, multi-status filters and RLS-scoped details with approval actor display names |
 | `POST /projects`, `/suppliers`, `/projects/:id/milestones` | Municipality creates records; simulated project funding is atomic |
 | `POST /invoices` | Supplier PDF + manual JSON, byte validation, SHA-256 and atomic invoice/items/ledger insertion |
 | `POST /invoices/:id/analyse` | Municipality runs deterministic rules on submitted data |
@@ -67,6 +67,11 @@ Responses use `{data: ...}` or `{error: {code, message}}`.
 | `POST /projects/:id/concerns`, `/concerns/:id/respond` | Citizen raises concern; municipality responds |
 | `POST /chain/reconcile` | Municipality/auditor; checks stored hashes against chain receipts and settles confirmed results |
 | `GET /chain/status?mode=fuji&project_id=UUID` | Municipality/auditor; read-only signer, roles, gas and wallet readiness |
+
+Project/dashboard responses embed public milestone fields. Community confirmation
+accepts `answer: yes | no | not_sure` and optional note; omitted answers remain null.
+Approval display names are enriched through a service-only RPC that repeats
+invoice access checks; general user-profile RLS is unchanged.
 
 Invoice multipart fields are `file` and `invoice` (JSON). Evidence fields are
 `file` and optional `caption`. Requests and files are size-limited; invoice PDFs

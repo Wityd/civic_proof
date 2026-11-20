@@ -25,9 +25,10 @@ Verified 2026-11-20 against `CivicProof_Project`, reference
 | Original database guards | Rolled-back checks passed for multichain wallets, BSC confirmation, cross-project links, invoice states and duplicate-release prevention |
 | Cleanup | Test project, invoices, evidence, ledger records, supplier fixture and files removed; CP001 preserved |
 | Final baseline | One demo project, four trusted users, zero submitted invoices and zero stored files; runtime Fuji with three verified setup transactions |
-| Chain adapter | 14 local Hardhat/PGlite scenarios passed, including golden path, pending recovery, service-role rollback, claims and persistence failure |
+| Chain adapter and P1 fields | 16 local Hardhat/PGlite scenarios passed, including golden path, pending recovery, rollback, claims, milestone redaction, approval-name access and delivery-answer constraints |
 | Fuji readiness | Deployed signer matches expected address, both contract roles, CP001 hash and gas; balance and available both 200000000 test-token cents |
-| Edge deployment | Version 8 active; strict Deno check passed; signing secrets remain server-side |
+| Edge deployment | Version 10 active; strict Deno check passed; signing secrets remain server-side |
+| P1 live handoff | Temporary metadata fixtures verified milestone responses, supplier IDs, list filters, approver names, all answer values, legacy notes and access denials; cleaned up without chain calls |
 
 Run `scripts/Test-SupabaseFirst.ps1` in a private PowerShell session. It obtains
 local encrypted credentials, passes secrets only through the test process's
@@ -35,6 +36,8 @@ environment, and clears those environment values afterward. The test creates an
 isolated project, uses real HTTPS endpoints and cleans up in `finally`. The script
 refuses to run unless the active mode is simulated; use
 `scripts/Test-CivicProofChainReadiness.ps1` for read-only checks while Fuji is active.
+The `-FrontendHandoffOnly` option is an exception: it runs isolated metadata tests
+in any active mode, without switching mode or invoking chain actions.
 
 ## Security advisors
 

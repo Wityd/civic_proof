@@ -131,6 +131,9 @@ Deno.test({ name: 'live Supabase-first access controls and complete simulated mo
     await request(`/milestones/${m.id}/verify`, 'POST', {}, 'auditor'); await request(`/payments/${installation.id}/execute`, 'POST', {}, 'municipality');
     assert((await request(`/projects/${project}/wallet`)).balance_cents === 181760000, 'Final demo balance R1,817,600');
     const dashboard = await request(`/projects/${project}`);
+    assert(dashboard.milestones.some((v: {id:string;status:string}) => v.id===m.id && v.status==='verified'), 'Project embeds current milestone fields');
+    const audited = await request(`/invoices/${fair.id}`, 'GET', undefined, 'auditor');
+    assert(audited.approvals[0].actor_display_name, 'Auditor sees approver display name');
     const serial = JSON.stringify(dashboard); for (const secret of ['document_path','document_sha256','contact_email','contact_phone','submitted_by']) assert(!serial.includes(`"${secret}"`), 'Public data is redacted');
     console.log('PASS delivery gating, duplicate evidence, community vs official verification, redaction and expected final balance');
 
