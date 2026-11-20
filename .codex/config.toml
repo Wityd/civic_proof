@@ -1,0 +1,7 @@
+# Project-scoped connection; the helper reads a Windows-encrypted local token.
+# No credential values belong in this file.
+[mcp_servers.civicproof_supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=crshjvjrgnnypxbpjmob&features=database,debugging,development,storage"
+http_headers_helper = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/Get-SupabaseMcpHeaders.ps1'
+startup_timeout_sec = 30
+tool_timeout_sec = 60
