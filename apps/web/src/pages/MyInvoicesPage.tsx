@@ -156,7 +156,17 @@ function MyInvoices() {
                       <Link to={`/projects/${inv.project_id}`} className="text-slate-700 hover:text-brand-700">
                         {inv.project_id}
                       </Link>
-                      {inv.milestone_id && <p className="text-xs text-slate-500">Milestone {inv.milestone_id}</p>}
+                      {inv.milestone_id && (
+                        <p className="text-xs text-slate-500">
+                          Milestone {inv.milestone_id} ·{' '}
+                          <Link
+                            to={`/delivery/${inv.milestone_id}/evidence`}
+                            className="font-medium text-brand-700 hover:underline"
+                          >
+                            Upload evidence →
+                          </Link>
+                        </p>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right font-semibold whitespace-nowrap text-slate-900 tabular-nums">
                       {formatMoney(inv.total_cents)}

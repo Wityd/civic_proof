@@ -160,6 +160,30 @@ export interface Wallet {
   contract_address: string | null
 }
 
+// Response of POST /milestones/:id/evidence
+export interface Evidence {
+  id: string
+  milestone_id: string
+  photo_hash: string
+  note: string | null
+  flags: FlagCode[]
+  created_at: string
+}
+
+// POST /milestones/:id/confirm. PLACEHOLDER shape until P2 confirms.
+export type DeliveryAnswer = 'yes' | 'no' | 'not_sure'
+export interface ConfirmDeliveryPayload {
+  answer: DeliveryAnswer
+  comment: string | null
+}
+// Response: deliberately has no resident identity.
+export interface DeliveryConfirmation {
+  id: string
+  milestone_id: string
+  answer: DeliveryAnswer
+  created_at: string
+}
+
 export interface Supplier {
   id: string
   name: string

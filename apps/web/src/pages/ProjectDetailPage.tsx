@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Money } from '../components/Money'
 import { StatusBadge } from '../components/StatusBadge'
 import { SimulatedBadge, TxHash } from '../components/TxHash'
+import { useViewAs } from '../context/ViewAsContext'
 import { api } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
 import { formatMoney } from '../lib/money'
@@ -11,6 +12,7 @@ import type { InvoiceSummary, Milestone, ProjectDetail, Transaction, Wallet } fr
 
 export function ProjectDetailPage() {
   const { id = '' } = useParams()
+  const { user } = useViewAs()
 
   const detail = useQuery({
     queryKey: ['project', id],
@@ -150,6 +152,14 @@ export function ProjectDetailPage() {
                     <MilestoneBadge status={m.status} />
                   </div>
                   <p className="mt-1 font-medium text-slate-800">{m.title}</p>
+                  {user?.role === 'citizen' && (
+                    <Link
+                      to={`/delivery/${m.id}/confirm`}
+                      className="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline"
+                    >
+                      Did this happen? Tell us →
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
