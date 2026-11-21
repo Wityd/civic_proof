@@ -24,7 +24,8 @@ const TEAM: Member[] = [
   },
   {
     name: 'Boipelo Pete',
-    photo: null,
+    photo: '/team/boipelo-pete.jpg',
+    position: '50% 30%',
     linkedin: 'https://www.linkedin.com/in/boipelo-pete-61a561355',
     github: 'https://github.com/thabangthaba16-hash',
   },
@@ -42,8 +43,13 @@ const TEAM: Member[] = [
     linkedin: 'https://www.linkedin.com/in/ndivhuwo-m-958ba22b0',
     github: 'https://github.com/nastro-blip',
   },
-  // Placeholder until the fifth member's details arrive.
-  { name: 'Member 5', photo: null, linkedin: null, github: null },
+  {
+    name: 'Mzobanzi Ngubane',
+    photo: '/team/mzobanzi-ngubane.jpg',
+    position: '50% 25%',
+    linkedin: 'https://www.linkedin.com/in/mzobanzi-ngubane',
+    github: 'https://github.com/MzooNgubane',
+  },
 ]
 
 const initials = (name: string) =>
