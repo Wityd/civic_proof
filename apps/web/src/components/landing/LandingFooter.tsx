@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { SectionLink } from './SectionLink'
 
 // Dark multi-column footer (ref: Balad).
-type FooterLink = { label: string; to?: string; section?: string }
+type FooterLink = { label: string; to?: string; section?: string; href?: string }
 
 const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
@@ -26,9 +26,7 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
     title: 'About',
     links: [
       { label: 'The team', to: '/team' },
-      // No contact page yet: these go to the About section.
-      { label: 'BACISS 2026', section: 'about' },
-      { label: 'Contact us', section: 'about' },
+      { label: 'BACISS 2026', href: 'https://blockchain.uj.ac.za/baciss/2026/ai-agent/' },
     ],
   },
 ]
@@ -41,7 +39,7 @@ export function LandingFooter() {
         <div>
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-600 font-bold">C</span>
-            <span className="text-lg font-bold">CivicProof</span>
+            <span className="font-heading text-lg font-bold">CivicProof</span>
           </div>
           <p className="mt-3 max-w-xs text-sm text-white/70">CivicProof. Follow the money, see the work.</p>
         </div>
@@ -51,7 +49,12 @@ export function LandingFooter() {
             <ul className="mt-3 space-y-2">
               {col.links.map((l) => (
                 <li key={l.label}>
-                  {l.to ? (
+                  {l.href ? (
+                    <a href={l.href} target="_blank" rel="noreferrer" className={linkCls}>
+                      {l.label}
+                      <span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  ) : l.to ? (
                     <Link to={l.to} className={linkCls}>
                       {l.label}
                     </Link>

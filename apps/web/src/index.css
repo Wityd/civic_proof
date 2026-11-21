@@ -1,7 +1,10 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Body copy: Poppins (Google Fonts, loaded in index.html). */
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, 'Segoe UI', Arial, sans-serif;
+  /* Headings: Plus Jakarta Sans Bold (Google Fonts, loaded in index.html). */
+  --font-heading: 'Plus Jakarta Sans', 'Poppins', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-50: #e8f4ee;
   --color-brand-100: #c9e5d5;
@@ -42,4 +45,15 @@
 
 body {
   @apply bg-slate-100 text-slate-900 antialiased;
+}
+
+/* Every heading in the app uses the heading font in Bold. This rule is deliberately
+   outside Tailwind's layers so it wins over per-heading weight classes (e.g. font-semibold).
+   Words marked font-serif inside a heading keep the italic serif. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
