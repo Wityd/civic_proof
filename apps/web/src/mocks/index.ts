@@ -4,9 +4,6 @@
 //
 // VITE_MOCK_SCENARIO=start → all 4 demo invoices just submitted, wallet untouched.
 // VITE_MOCK_SCENARIO=end (default) → the finished demo story.
-//
-// Differences on purpose (things requested from P2, marked REQUESTED in types.ts):
-// projects include `milestones`.
 import { EVIDENCE_UPLOAD_PARTS, INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
 import { getViewAsId } from '../lib/viewAs'
 import type {
@@ -50,7 +47,8 @@ export const MOCK_SCENARIO: 'start' | 'end' = import.meta.env.VITE_MOCK_SCENARIO
 export const mockUsers = usersJson as DemoUser[]
 const suppliers = suppliersJson as Supplier[]
 const projectsBase = projectsJson as BaseProject[]
-const milestones = structuredClone(milestonesJson) as Milestone[]
+// The mock keeps project_id for filtering; the API response leaves it out.
+const milestones = structuredClone(milestonesJson) as (Milestone & { project_id: string })[]
 const wallets = walletsJson as Record<string, Pick<Wallet, 'mode' | 'wallet_address'>>
 
 const seededInvoices = structuredClone(invoicesJson) as unknown as StoredInvoice[]
@@ -132,7 +130,10 @@ function projectView(p: BaseProject): Project {
     wallet_address: wallets[p.id]?.wallet_address ?? null,
     invoices: publicInvoices,
     transactions: transactions.filter((t) => t.project_id === p.id).map(stripTx),
-    milestones: milestones.filter((m) => m.project_id === p.id), // REQUESTED from P2
+    milestones: milestones
+      .filter((m) => m.project_id === p.id)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .map(({ project_id, ...m }) => m),
   }
 }
 

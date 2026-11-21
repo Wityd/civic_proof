@@ -2,7 +2,7 @@ import type { Milestone, Project } from '../types'
 import { useProjects } from './queries'
 
 // There is no GET /milestones/:id, so look the milestone up through the projects.
-// Needs `milestones` on each project (REQUESTED from P2).
+// Uses the `milestones` list on each project.
 export function useMilestone(milestoneId: string) {
   const projects = useProjects()
   let milestone: Milestone | undefined
