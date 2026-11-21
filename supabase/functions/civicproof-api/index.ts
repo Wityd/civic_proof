@@ -3,6 +3,7 @@ import { aiEnabled, explainWithAI } from '../_shared/ai.ts';
 import { applyDocumentCheck, readInvoicePdf } from '../_shared/extract.ts';
 import { withCatalogueMatches } from '../_shared/catalogue.ts';
 import { draftFromPdf } from '../_shared/draft.ts';
+import { applyLinks, findLinks, linkChecks, type SupplierRecord } from '../_shared/relations.ts';
 import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainStatus, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
@@ -74,6 +75,24 @@ async function multipart(req: Request) {
   try { return await new Response(await bytes(req, 11 * 1024 * 1024), { headers: { 'content-type': req.headers.get('content-type')! } }).formData(); }
   catch (e) { if (e instanceof ApiError) throw e; throw new ApiError('VALIDATION', 'Invalid multipart data.'); }
 }
+/** "Possible supplier relationships": other suppliers sharing payout or contact details. Never throws. */
+async function supplierLinkChecks(input: AnalysisContext) {
+  try {
+    const inv = input.invoice as { supplier_id: string; project_id?: string };
+    const me = { ...(input.supplier as unknown as SupplierRecord), id: inv.supplier_id };
+    const others = await db(`suppliers?id=neq.${uuid(inv.supplier_id)}&select=id,name,contact_name,contact_email,contact_phone,wallet_address`) as SupplierRecord[];
+    const links = findLinks(me, others);
+    if (!links.length) return [];
+    const invoices = inv.project_id
+      ? await db(`invoices?project_id=eq.${uuid(inv.project_id)}&supplier_id=in.(${links.map((l) => uuid(l.other.id)).join(',')})&select=supplier_id,invoice_number&order=created_at.asc`)
+      : [];
+    return linkChecks(me, links, invoices);
+  } catch {
+    console.warn('analysis: supplier relationship lookup failed; skipped');
+    return [];
+  }
+}
+
 /** A PDF from a multipart field, with the same checks as uploads (%PDF-, 1 byte to 10 MiB). Not stored. */
 async function pdfFile(file: FormDataEntryValue | null): Promise<Uint8Array> {
   if (!(file instanceof File) || file.size === 0 || file.size > 10 * 1024 * 1024) throw new ApiError('VALIDATION', 'A PDF of 1 byte to 10 MiB is required.');
@@ -223,7 +242,7 @@ async function handle(req: Request): Promise<Response> {
         const ai = aiEnabled(Deno.env);
         const pdf = ai ? await downloadInvoicePdf((input.invoice as { document_path?: unknown }).document_path) : null;
         const read = pdf ? await readInvoicePdf(pdf, Deno.env) : null;
-        const checked = applyDocumentCheck(analyse(input), input, read, ai);
+        const checked = applyLinks(applyDocumentCheck(analyse(input), input, read, ai), await supplierLinkChecks(input));
         const review = await explainWithAI(checked, input, Deno.env);
         return response({ data: await rpc('cp_store_analysis', { p_actor: actor, p_invoice_id: id, p_review: review }) });
       }

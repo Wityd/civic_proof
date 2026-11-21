@@ -361,6 +361,8 @@ anchored       fixed fields     budget           registry, flags sentences      
 
 **The AI reads the invoice.** Gemini reads the attached PDF into fixed fields (supplier, registration number, invoice number, lines, total). Plain code, not the AI, compares them with what the supplier typed and with the supplier registry. A supplier who types the fair R5,200.00 benchmark price into the form but attaches an invoice charging R12,000.00 is caught: `DOCUMENT_MISMATCH`, held for review. The PDF is treated as untrusted. Instructions written inside it are ignored, and only short, cleaned values reach the explanation step. If it can't be read, an info note asks the reviewer to compare it by hand. Try it locally: `node supabase/tools/pdf-try.mts PD-0147.pdf`.
 
+**Possible supplier relationships.** Plain code compares the invoicing supplier with every other registered supplier. Two "different" companies that share a payout wallet, contact email or phone number are flagged `SUPPLIER_LINKED`, naming any invoices the other one has on the same project. The reviewer is asked to check that they are independent; the check never calls anything fraud. Demo data: `supabase/deployments/demo_linked_supplier.sql`.
+
 **What fixed rules can't see.** A R785,000.00 bakkie filed under *pipes* (a permitted category) passes every rule. Gemini notices that the description doesn't match the category, and the invoice is held for review instead of approved.
 
 | Flag | Severity | Fires when |
@@ -376,6 +378,7 @@ anchored       fixed fields     budget           registry, flags sentences      
 | `AI_CATEGORY_CONCERN` | medium | **AI advisory:** a line's description clearly doesn't fit its declared (permitted) category |
 | `DOCUMENT_MISMATCH` | high / medium | The attached PDF differs from the form or the registry: total, lines, quantity, unit price, invoice or registration number (high); supplier name, or not an invoice (medium) |
 | `DOCUMENT_NOT_READ` | info | AI is on but the PDF couldn't be read; compare it by hand |
+| `SUPPLIER_LINKED` | medium / info | The supplier shares a payout wallet, contact email or phone with another registered supplier, a sign of one business split in two (medium); a shared contact person's name only (info) |
 
 **Recommendation:** any `PURPOSE_MISMATCH` → `REJECT`. Any other high or medium flag → `HOLD_FOR_REVIEW`. Otherwise → `APPROVE`. Approving against a flag requires a written reason and records `overrode_ai = true`.
 
@@ -517,6 +520,8 @@ P2 has the final say on technical calls, and P5 has the final say on scope and t
 | Gemini explanations + `AI_CATEGORY_CONCERN`, with guardrails and model fallback | ✅ live (25 Deno tests for rules and AI) |
 | AI reads the invoice PDF and code compares it with the form (`DOCUMENT_MISMATCH`) | ✅ built (13 Deno tests) |
 | Price matching for form-submitted lines (catalogue by category + description) | ✅ built (7 Deno tests) |
+| `POST /invoices/extract`: the AI drafts the supplier's form from the PDF | ✅ built (10 Deno tests) |
+| Possible supplier relationships (`SUPPLIER_LINKED`) | ✅ built (5 Deno tests) |
 | BNB testnet deployment | ⏳ deploy-ready; the faucet needs a mainnet balance |
 
 ---
