@@ -2,6 +2,7 @@ import { analyse, type AnalysisContext } from '../_shared/rules.ts';
 import { aiEnabled, explainWithAI } from '../_shared/ai.ts';
 import { applyDocumentCheck, readInvoicePdf } from '../_shared/extract.ts';
 import { withCatalogueMatches } from '../_shared/catalogue.ts';
+import { draftFromPdf } from '../_shared/draft.ts';
 import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainStatus, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
@@ -73,6 +74,14 @@ async function multipart(req: Request) {
   try { return await new Response(await bytes(req, 11 * 1024 * 1024), { headers: { 'content-type': req.headers.get('content-type')! } }).formData(); }
   catch (e) { if (e instanceof ApiError) throw e; throw new ApiError('VALIDATION', 'Invalid multipart data.'); }
 }
+/** A PDF from a multipart field, with the same checks as uploads (%PDF-, 1 byte to 10 MiB). Not stored. */
+async function pdfFile(file: FormDataEntryValue | null): Promise<Uint8Array> {
+  if (!(file instanceof File) || file.size === 0 || file.size > 10 * 1024 * 1024) throw new ApiError('VALIDATION', 'A PDF of 1 byte to 10 MiB is required.');
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  if (!new TextDecoder().decode(buffer.slice(0, 5)).startsWith('%PDF-')) throw new ApiError('VALIDATION', 'A PDF is required.');
+  return buffer;
+}
+
 /** The stored invoice PDF (private bucket, read with the service key), or null. Never throws. */
 async function downloadInvoicePdf(path: unknown): Promise<Uint8Array | null> {
   if (typeof path !== 'string' || !path) return null;
@@ -162,6 +171,22 @@ async function handle(req: Request): Promise<Response> {
       return response({ data: { ...rows[0], approvals } });
     }
     if (req.method !== 'POST') throw new ApiError('NOT_FOUND', 'Route not found.', 404);
+
+    if (path === '/invoices/extract') {
+      // "Upload first, AI fills the form": a DRAFT only. Stores nothing and sends no chain
+      // transaction; the supplier checks it, then submits the same PDF with POST /invoices.
+      requireRole('supplier');
+      const form = await multipart(req);
+      const projectId = uuid(form.get('project_id')), supplierId = uuid(form.get('supplier_id'));
+      const pdf = await pdfFile(form.get('file'));
+      const owned = await db(`suppliers?id=eq.${supplierId}&user_id=eq.${actor}&select=name,registration_no`);
+      if (!owned[0]) throw new ApiError('FORBIDDEN', 'You cannot invoice for this supplier.', 403);
+      const projects = await db(`projects?id=eq.${projectId}&select=permitted_categories`);
+      if (!projects[0]) throw new ApiError('VALIDATION', 'Unknown project.');
+      const result = await draftFromPdf(pdf, projects[0].permitted_categories ?? [], owned[0], Deno.env);
+      if (!result.ok) throw new ApiError('EXTRACTION_FAILED', result.reason, 422);
+      return response({ data: result.data });
+    }
 
     if (path === '/invoices') {
       requireRole('supplier');
