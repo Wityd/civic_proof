@@ -248,6 +248,24 @@ export interface NewInvoicePayload {
   }[]
 }
 
+// POST /invoices/extract (PROPOSED): the AI's draft of an uploaded invoice.
+// Nothing is stored; the supplier checks/edits it, then submits with POST /invoices.
+export interface ExtractedInvoice {
+  invoice_number: string | null
+  invoice_date: string | null // YYYY-MM-DD
+  line_items: {
+    description: string
+    category: string | null // one of the project's permitted_categories, or null if none fits
+    quantity: number
+    unit_price_cents: number
+    line_total_cents: number
+  }[]
+  total_cents: number | null // the total printed on the invoice
+  confidence?: number // 0–1, optional
+  warnings?: string[] // plain-language notes, e.g. "Could not read line 3"
+  is_invoice?: boolean // false if the PDF doesn't look like an invoice (from readInvoicePdf)
+}
+
 // POST /invoices/:id/approve | hold | reject
 export interface DecisionResult {
   invoice_id: string
