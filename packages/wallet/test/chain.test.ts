@@ -5,7 +5,7 @@
 import { ChildProcess, spawn } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { ContractFactory, JsonRpcProvider, Wallet } from "ethers";
+import { ContractFactory, JsonRpcProvider, NonceManager, Wallet } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ChainWalletService } from "../src";
 import { R, sha, walletConformance } from "./conformance";
@@ -62,7 +62,9 @@ function newService(extra: Partial<ConstructorParameters<typeof ChainWalletServi
 
 beforeAll(async () => {
   await startNode();
-  const deployer = new Wallet(LOCAL_KEY, new JsonRpcProvider(RPC));
+  // No response cache and a nonce manager: two deploys back to back must never reuse a nonce
+  // (ethers caches getTransactionCount for 250 ms by default, which made CI flaky).
+  const deployer = new NonceManager(new Wallet(LOCAL_KEY, new JsonRpcProvider(RPC, undefined, { cacheTimeout: -1 })));
   const DemoZAR = artifact("DemoZAR");
   const Factory = artifact("CivicProofFactory");
   const token = await new ContractFactory(DemoZAR.abi, DemoZAR.bytecode, deployer).deploy();
