@@ -3,8 +3,8 @@
     "id": "10000000-0000-4000-8000-000000000001",
     "code": "CP001",
     "name": "Kgotso Valley Water Access",
-    "description": "Fictional demo project: water tanks, pipes and installation at four village sites.",
-    "location": "Kgotso Valley (fictional)",
+    "description": "Water tanks, pipes and installation at four village sites.",
+    "location": "Kgotso Valley",
     "budget_cents": 200000000,
     "permitted_categories": [
       "water_storage",
