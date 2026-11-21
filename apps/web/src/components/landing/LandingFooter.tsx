@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { scrollToSection } from './scroll'
+import { SectionLink } from './SectionLink'
 
 // Dark multi-column footer (ref: Balad).
 type FooterLink = { label: string; to?: string; section?: string }
@@ -25,8 +25,8 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: 'About',
     links: [
-      // No team/contact pages yet: these go to the About section.
-      { label: 'The team', section: 'about' },
+      { label: 'The team', to: '/team' },
+      // No contact page yet: these go to the About section.
       { label: 'BACISS 2026', section: 'about' },
       { label: 'Contact us', section: 'about' },
     ],
@@ -56,9 +56,9 @@ export function LandingFooter() {
                       {l.label}
                     </Link>
                   ) : (
-                    <a href={`#${l.section}`} onClick={scrollToSection(l.section!)} className={linkCls}>
+                    <SectionLink section={l.section!} className={linkCls}>
                       {l.label}
-                    </a>
+                    </SectionLink>
                   )}
                 </li>
               ))}
@@ -68,8 +68,7 @@ export function LandingFooter() {
       </div>
       <div className="border-t border-white/10">
         <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-white/60">
-          © 2026 CivicProof · This is a demo. Every project, supplier and amount here is made up, and no real money is
-          used.
+          © 2026 CivicProof · Built for BACISS 2026
         </p>
       </div>
     </footer>

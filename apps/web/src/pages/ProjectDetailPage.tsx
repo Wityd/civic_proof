@@ -53,9 +53,6 @@ export function ProjectDetailPage() {
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{project.code}</span>
-          <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-            Fictional
-          </span>
         </div>
         <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{project.name}</h1>
         <p className="mt-1 text-slate-500">

@@ -1,5 +1,5 @@
 // Hero visual: a mini CivicProof dashboard with floating cards (ref: LucenAI).
-// Built from the app's own pieces; all figures are the fictional demo story.
+// Built from the app's own pieces, with the Kgotso Valley story figures.
 import { formatMoney } from '../../lib/money'
 import type { InvoiceStatus } from '../../types'
 import { Money } from '../Money'
@@ -23,11 +23,11 @@ export function HeroPreview() {
       <div className="mx-auto max-w-md rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-float">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">CP001 · Demo project</p>
+            <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">CP001 · Water project</p>
             <p className="font-semibold text-slate-900">Kgotso Valley Water Access</p>
           </div>
-          <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-semibold text-violet-800">
-            Demo data
+          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
+            Public record
           </span>
         </div>
 
