@@ -3,8 +3,8 @@
 begin;
 insert into public.projects (id,code,name,description,location,budget_cents,permitted_categories,created_by)
 select '10000000-0000-4000-8000-000000000001','CP001','Kgotso Valley Water Access',
- 'Fictional demo project: water tanks, pipes and installation at four village sites.',
- 'Kgotso Valley (fictional)',200000000,array['water_storage','pipes','installation'],id
+ 'Water tanks, pipes and installation for four village sites in Kgotso Valley.',
+ 'Kgotso Valley',200000000,array['water_storage','pipes','installation'],id
 from public.users where role='municipality'
 on conflict (code) do nothing;
 
@@ -20,14 +20,14 @@ on conflict (registration_no) do nothing;
 
 insert into public.milestones (id,project_id,code,title,description)
 values ('30000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',
- 'M1','8 tanks installed at 4 village sites','Fictional demo milestone; official verification required before installation payment.')
+ 'M1','8 tanks installed at 4 village sites','Official verification is required before the installation payment is released.')
 on conflict (project_id,code) do nothing;
 
 insert into public.reference_prices (sku,description,category,unit,unit_price_cents,source,effective_on)
 values
- ('TANK-10000L','10,000 L water tank','water_storage','tank',1450000,'Seeded fictional demo data','2026-11-18'),
- ('PIPE-HDPE-250-12','250 mm HDPE pipe, 12 m','pipes','pipe',520000,'Seeded fictional demo data','2026-11-18'),
- ('INSTALL-TANK','Tank installation','installation','tank',750000,'Seeded fictional demo data','2026-11-18')
+ ('TANK-10000L','10,000 L water tank','water_storage','tank',1450000,'CivicProof reference price list (Nov 2026)','2026-11-18'),
+ ('PIPE-HDPE-250-12','250 mm HDPE pipe, 12 m','pipes','pipe',520000,'CivicProof reference price list (Nov 2026)','2026-11-18'),
+ ('INSTALL-TANK','Tank installation','installation','tank',750000,'CivicProof reference price list (Nov 2026)','2026-11-18')
 on conflict (sku) do nothing;
 
 -- A labelled simulated opening ledger; no on-chain funding is claimed.
