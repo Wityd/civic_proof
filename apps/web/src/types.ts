@@ -164,6 +164,8 @@ export type FlagCode =
   | 'NO_BENCHMARK'
   | 'DUPLICATE_EVIDENCE'
   | 'AI_CATEGORY_CONCERN'
+  | 'DOCUMENT_MISMATCH'
+  | 'DOCUMENT_NOT_READ'
 
 export type Recommendation = 'APPROVE' | 'HOLD_FOR_REVIEW' | 'REJECT'
 
@@ -178,6 +180,16 @@ export interface AiReview {
     line_items: Omit<InvoiceItem, 'id' | 'invoice_id' | 'line_index'>[]
     total_cents: number
     confidence: number
+    /** What the AI read from the attached PDF (only when AI_MODE=llm and the PDF could be read). */
+    document?: {
+      supplier_name: string
+      registration_no: string
+      invoice_number: string
+      invoice_date: string
+      total_cents: number
+      read_by: string
+      matches_form: boolean
+    }
   }
   checks: { code: FlagCode; severity: 'high' | 'medium' | 'info'; line?: number; detail: string }[]
   flags: FlagCode[]

@@ -1,5 +1,6 @@
 import { analyse, type AnalysisContext } from '../_shared/rules.ts';
-import { explainWithAI } from '../_shared/ai.ts';
+import { aiEnabled, explainWithAI } from '../_shared/ai.ts';
+import { applyDocumentCheck, readInvoicePdf } from '../_shared/extract.ts';
 import { withCatalogueMatches } from '../_shared/catalogue.ts';
 import { chainDecide, chainExecutePayment, chainHttpStatus, chainMilestone, chainReconcile, chainStatus, chainSubmitInvoice, type ChainDeps } from '../_shared/chain_routes.ts';
 
@@ -72,6 +73,20 @@ async function multipart(req: Request) {
   try { return await new Response(await bytes(req, 11 * 1024 * 1024), { headers: { 'content-type': req.headers.get('content-type')! } }).formData(); }
   catch (e) { if (e instanceof ApiError) throw e; throw new ApiError('VALIDATION', 'Invalid multipart data.'); }
 }
+/** The stored invoice PDF (private bucket, read with the service key), or null. Never throws. */
+async function downloadInvoicePdf(path: unknown): Promise<Uint8Array | null> {
+  if (typeof path !== 'string' || !path) return null;
+  try {
+    const r = await fetch(`${url}/storage/v1/object/invoices/${path.split('/').map(encodeURIComponent).join('/')}`, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
+    if (!r.ok) { console.warn(`ai: invoice PDF not available (HTTP ${r.status})`); return null; }
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return bytes.length > 0 && bytes.length <= 10 * 1024 * 1024 ? bytes : null;
+  } catch {
+    console.warn('ai: invoice PDF download failed');
+    return null;
+  }
+}
+
 async function upload(file: FormDataEntryValue | null, actor: string, kind: 'invoices' | 'evidence') {
   if (!(file instanceof File) || file.size === 0 || file.size > 10 * 1024 * 1024) throw new ApiError('VALIDATION', 'A file of 1 byte to 10 MiB is required.');
   const buffer = new Uint8Array(await file.arrayBuffer());
@@ -178,8 +193,13 @@ async function handle(req: Request): Promise<Response> {
       if (invoiceRoute[2] === 'analyse') {
         // Lines without a catalogue SKU (the web form sends none) are matched by category + description.
         const input = withCatalogueMatches(await rpc('cp_analysis_context', { p_actor: actor, p_invoice_id: id }) as AnalysisContext);
-        // Rules decide; Gemini (AI_MODE=llm) only rewrites the explanation, with guardrails.
-        const review = await explainWithAI(analyse(input), input, Deno.env);
+        // Rules decide. With AI_MODE=llm, Gemini also reads the attached PDF (code compares it with
+        // the form: DOCUMENT_MISMATCH) and then words the explanation, all with guardrails.
+        const ai = aiEnabled(Deno.env);
+        const pdf = ai ? await downloadInvoicePdf((input.invoice as { document_path?: unknown }).document_path) : null;
+        const read = pdf ? await readInvoicePdf(pdf, Deno.env) : null;
+        const checked = applyDocumentCheck(analyse(input), input, read, ai);
+        const review = await explainWithAI(checked, input, Deno.env);
         return response({ data: await rpc('cp_store_analysis', { p_actor: actor, p_invoice_id: id, p_review: review }) });
       }
       const body = await json(req);

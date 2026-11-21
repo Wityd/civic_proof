@@ -53,6 +53,7 @@ Deterministic rules have ALREADY checked the invoice. Their results are in RULE_
 
 Write a plain-language explanation of 2 to 4 short sentences for the official:
 - Say what the rules found and why it matters, most important first. If nothing was flagged, say so briefly.
+- DOCUMENT_MISMATCH checks mean the attached invoice PDF differs from what the supplier typed into the form: always mention them, early.
 - If a line item's description clearly does not fit its declared_category (for example a vehicle declared as pipes), mention it as an observation for the reviewer to check, AND list that line number in category_mismatch_lines. Only list clear mismatches; when in doubt, leave it out.
 - Use ONLY numbers, amounts, percentages and dates that appear in RULE_RESULTS, written exactly as they appear there. Never calculate or invent a figure.
 - Keep every figure with its own meaning: unit prices compare with benchmark unit prices; "excess" and "potential_excess" are TOTALS for the line or invoice. Never say a unit price exceeds anything by a total amount.
@@ -77,14 +78,40 @@ export function rejectReason(text: string, facts: unknown, rulesExplanation: str
   return invented.length ? `invented numbers: ${invented.join(', ')}` : null;
 }
 
+const EXPLAIN_SCHEMA = {
+  type: 'OBJECT',
+  properties: { explanation: { type: 'STRING' }, category_mismatch_lines: { type: 'ARRAY', items: { type: 'INTEGER' } } },
+  required: ['explanation'],
+};
+
 /**
  * Returns the review with a Gemini explanation (mode 'llm'), or the untouched rules review.
  * Never throws.
  */
 export async function explainWithAI(review: Review, ctx: AnalysisContext, env: Env, fetchFn: Fetch = fetch): Promise<Review> {
-  const key = env.get('GEMINI_API_KEY');
-  if (env.get('AI_MODE') !== 'llm' || !key) return review;
+  if (!aiEnabled(env)) return review;
   const facts = factsFor(review, ctx);
+  const got = await askGemini(env, fetchFn, [{ text: PROMPT + JSON.stringify(facts, null, 2) }], EXPLAIN_SCHEMA, 'explanation');
+  if (!got) return review;
+  // deno-lint-ignore no-explicit-any
+  const parsed = got.value as any;
+  const explanation = String(parsed?.explanation ?? '').replace(/\s+/g, ' ').trim();
+  const problem = rejectReason(explanation, facts, review.explanation);
+  if (problem) { console.warn(`ai: ${got.model} reply rejected (${problem}); keeping rules explanation`); return review; }
+  console.info(`ai: explained by ${got.model}`);
+  return applyConcerns({ ...review, explanation: `${explanation} ${CLOSING}`, mode: 'llm' }, ctx, parsed?.category_mismatch_lines);
+}
+
+export const aiEnabled = (env: Env) => env.get('AI_MODE') === 'llm' && !!env.get('GEMINI_API_KEY');
+
+/**
+ * One structured-JSON request through the model chain (3.8 Flash → 3.1 Flash-Lite), each model
+ * in its own time slice, all inside one overall deadline. Returns the parsed JSON and the model
+ * that answered, or null on any problem. Never throws.
+ */
+export async function askGemini(env: Env, fetchFn: Fetch, parts: unknown[], schema: unknown, task: string): Promise<{ model: string; value: unknown } | null> {
+  const key = env.get('GEMINI_API_KEY');
+  if (!key) return null;
   const models = (env.get('GEMINI_MODEL') || DEFAULT_MODELS).split(',').map((m) => m.trim()).filter(Boolean);
   const deadline = Date.now() + Number(env.get('AI_TIMEOUT_MS') || TIMEOUT_MS);
   const perModel = Number(env.get('AI_MODEL_TIMEOUT_MS') || PER_MODEL_MS);
@@ -93,41 +120,36 @@ export async function explainWithAI(review: Review, ctx: AnalysisContext, env: E
     if (budget <= 0) break;
     let reply: { status: number; text: string };
     try {
-      reply = await attempt(fetchFn, model, key, facts, budget);
+      reply = await attempt(fetchFn, model, key, parts, schema, budget);
     } catch (e) {
-      console.warn(`ai: ${model} ${(e as Error)?.name === 'AbortError' ? `gave no answer within ${budget} ms` : 'request failed'}; trying the next model`);
+      console.warn(`ai: ${model} ${(e as Error)?.name === 'AbortError' ? `gave no answer within ${budget} ms` : 'request failed'} (${task}); trying the next model`);
       continue;
     }
-    if (NEXT_MODEL_ON.has(reply.status)) { console.warn(`ai: ${model} unavailable (HTTP ${reply.status}); trying the next model`); continue; }
-    if (reply.status !== 200) { console.warn(`ai: Gemini HTTP ${reply.status}; keeping rules explanation`); return review; }
+    if (NEXT_MODEL_ON.has(reply.status)) { console.warn(`ai: ${model} unavailable (HTTP ${reply.status}, ${task}); trying the next model`); continue; }
+    if (reply.status !== 200) { console.warn(`ai: Gemini HTTP ${reply.status} (${task}); skipping the AI step`); return null; }
     try {
       const body = JSON.parse(reply.text);
       const raw = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-      const parsed = JSON.parse(raw);
-      const explanation = String(parsed?.explanation ?? '').replace(/\s+/g, ' ').trim();
-      const problem = rejectReason(explanation, facts, review.explanation);
-      if (problem) { console.warn(`ai: ${model} reply rejected (${problem}); keeping rules explanation`); return review; }
-      console.info(`ai: explained by ${model}`);
-      return applyConcerns({ ...review, explanation: `${explanation} ${CLOSING}`, mode: 'llm' }, ctx, parsed?.category_mismatch_lines);
+      return { model, value: JSON.parse(raw) };
     } catch {
-      console.warn(`ai: ${model} sent an unreadable reply; keeping rules explanation`);
-      return review;
+      console.warn(`ai: ${model} sent an unreadable reply (${task}); skipping the AI step`);
+      return null;
     }
   }
-  console.warn('ai: no model answered in time; keeping rules explanation');
-  return review;
+  console.warn(`ai: no model answered in time (${task}); skipping the AI step`);
+  return null;
 }
 
 /** One model, one time slice. The whole reply is read inside the slice. */
-async function attempt(fetchFn: Fetch, model: string, key: string, facts: unknown, budgetMs: number) {
+async function attempt(fetchFn: Fetch, model: string, key: string, parts: unknown[], schema: unknown, budgetMs: number) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), budgetMs);
   try {
-    let res = await callGemini(fetchFn, model, key, facts, controller.signal, true);
+    let res = await callGemini(fetchFn, model, key, parts, schema, controller.signal, true);
     let text = await res.text();
     if (res.status === 400 && /thinking/i.test(text)) {
       // This model does not accept a thinking level: ask again without it.
-      res = await callGemini(fetchFn, model, key, facts, controller.signal, false);
+      res = await callGemini(fetchFn, model, key, parts, schema, controller.signal, false);
       text = await res.text();
     }
     return { status: res.status, text };
@@ -136,29 +158,25 @@ async function attempt(fetchFn: Fetch, model: string, key: string, facts: unknow
   }
 }
 
-function callGemini(fetchFn: Fetch, model: string, key: string, facts: unknown, signal: AbortSignal, lowThinking: boolean) {
+function callGemini(fetchFn: Fetch, model: string, key: string, parts: unknown[], schema: unknown, signal: AbortSignal, lowThinking: boolean) {
   return fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      signal,
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: PROMPT + JSON.stringify(facts, null, 2) }] }],
-        generationConfig: {
-          temperature: 0.2,
-          // Newer models "think" first and that counts against this limit: keep headroom so
-          // the short JSON answer is never cut off.
-          maxOutputTokens: 2048,
-          // The rules already did the reasoning; the model only has to word it. Low thinking
-          // effort is what makes replies fast enough for an official waiting on screen.
-          ...(lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: { explanation: { type: 'STRING' }, category_mismatch_lines: { type: 'ARRAY', items: { type: 'INTEGER' } } },
-            required: ['explanation'],
-          },
-        },
-      }),
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.2,
+        // Newer models "think" first and that counts against this limit: keep headroom so
+        // the short JSON answer is never cut off.
+        maxOutputTokens: 2048,
+        // The rules already did the reasoning; the model only has to word it. Low thinking
+        // effort is what makes replies fast enough for an official waiting on screen.
+        ...(lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+        responseMimeType: 'application/json',
+        responseSchema: schema,
+      },
+    }),
   });
 }
 
