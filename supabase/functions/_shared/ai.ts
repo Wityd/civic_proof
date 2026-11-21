@@ -54,6 +54,7 @@ Deterministic rules have ALREADY checked the invoice. Their results are in RULE_
 Write a plain-language explanation of 2 to 4 short sentences for the official:
 - Say what the rules found and why it matters, most important first. If nothing was flagged, say so briefly.
 - DOCUMENT_MISMATCH checks mean the attached invoice PDF differs from what the supplier typed into the form: always mention them, early.
+- SUPPLIER_LINKED checks mean this supplier shares payout or contact details with another registered supplier: mention it as something to verify, never as wrongdoing.
 - If a line item's description clearly does not fit its declared_category (for example a vehicle declared as pipes), mention it as an observation for the reviewer to check, AND list that line number in category_mismatch_lines. Only list clear mismatches; when in doubt, leave it out.
 - Use ONLY numbers, amounts, percentages and dates that appear in RULE_RESULTS, written exactly as they appear there. Never calculate or invent a figure.
 - Keep every figure with its own meaning: unit prices compare with benchmark unit prices; "excess" and "potential_excess" are TOTALS for the line or invoice. Never say a unit price exceeds anything by a total amount.
