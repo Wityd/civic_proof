@@ -32,6 +32,23 @@ export function AiFindingsCard({ review }: { review: AiReview }) {
 
       <p className="mt-4 text-slate-700">{review.explanation}</p>
 
+      {review.extraction.document && (
+        <p
+          className={`mt-4 rounded-2xl p-3 text-sm font-medium ${
+            review.extraction.document.matches_form ? 'bg-brand-50 text-brand-700' : 'bg-red-50 text-red-700'
+          }`}
+        >
+          📄 The AI read the attached invoice PDF:{' '}
+          {review.extraction.document.matches_form
+            ? 'it matches what the supplier submitted.'
+            : 'it differs from what the supplier submitted (see below).'}
+          <span className="block text-xs font-normal opacity-80">
+            PDF total {formatMoney(review.extraction.document.total_cents)} · invoice{' '}
+            {review.extraction.document.invoice_number || 'not printed'}
+          </span>
+        </p>
+      )}
+
       {review.checks.length === 0 ? (
         <p className="mt-4 rounded-2xl bg-brand-50 p-4 text-sm font-medium text-brand-700">No problems found.</p>
       ) : (
