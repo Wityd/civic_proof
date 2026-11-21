@@ -54,7 +54,7 @@ Citizens can't see where the money went. Officials have no fast, consistent way 
 | Module | What it gives you |
 | --- | --- |
 | **Ring-fenced project wallets** | Every project gets **its own wallet contract** with its own address on the explorer. Money only leaves through an approved, recorded release. |
-| **AI expenditure review** | Each invoice is checked against reference prices, the project's permitted purposes, the budget and the supplier registry, then explained in plain language by Gemini, which can also spot items that don't fit their declared category. |
+| **AI expenditure review** | The AI reads each invoice PDF and code checks it against what was submitted, reference prices, the project's permitted purposes, the budget and the supplier registry, then explained in plain language by Gemini, which can also spot items that don't fit their declared category. |
 | **Human-in-the-loop approval** | **AI recommends; authorised humans decide.** Approving against an AI flag needs a written reason, which is recorded. |
 | **Public transparency dashboard** | Citizens see budget, spent, balance, every payment with its transaction hash, and every held or rejected invoice, with personal data redacted. |
 | **Delivery verification** | Milestones, photo evidence with duplicate detection, community confirmation and official verification. Delivery-dependent payments stay locked on-chain until the milestone is verified. |
@@ -342,10 +342,10 @@ Any other transition is refused. A user can't approve an invoice they submitted.
 ## AI expenditure review
 
 ```
-Submit ──────► Retrieve ──────► Validate ──────► Explain ──────► Human review
-PDF + line     reference        rules            Gemini writes   approve /
-items, SHA-256 prices, registry (every flag)     2–4 plain       hold /
-anchored       budget                            sentences       reject
+Submit ──────► Read ───────────► Retrieve ──────► Validate ──────► Explain ──────► Human review
+PDF + line     Gemini reads     reference        rules compare   Gemini writes   approve /
+items, SHA-256 the PDF into     prices, registry PDF ↔ form ↔    2–4 plain       hold /
+anchored       fixed fields     budget           registry, flags sentences       reject
 ```
 
 **Rules decide, AI explains.** The deterministic rules (`supabase/functions/_shared/rules.ts`) produce every flag, every amount and the recommendation. They are repeatable and tested. Gemini (`_shared/ai.ts`) receives **only the rules' results** and turns them into a short explanation an official can act on.
@@ -358,6 +358,8 @@ anchored       budget                            sentences       reject
 - **Never in the way.** Gemini 3.8 Flash answers first; if it is overloaded, retired or slow (7 s per model), 3.1 Flash-Lite answers; after 15 s in total, or on any bad reply, the rules' own explanation is used. The analysis never fails because of the AI.
 - **Keys stay on the server.** The Gemini key is an Edge Function secret and is sent in a header, never a URL.
 - **`AI_MODE=rules`** switches the LLM off completely, with template explanations.
+
+**The AI reads the invoice.** Gemini reads the attached PDF into fixed fields (supplier, registration number, invoice number, lines, total). Plain code, not the AI, compares them with what the supplier typed and with the supplier registry. A supplier who types the fair R5,200.00 benchmark price into the form but attaches an invoice charging R12,000.00 is caught: `DOCUMENT_MISMATCH`, held for review. The PDF is treated as untrusted. Instructions written inside it are ignored, and only short, cleaned values reach the explanation step. If it can't be read, an info note asks the reviewer to compare it by hand. Try it locally: `node supabase/tools/pdf-try.mts PD-0147.pdf`.
 
 **What fixed rules can't see.** A R785,000.00 bakkie filed under *pipes* (a permitted category) passes every rule. Gemini notices that the description doesn't match the category, and the invoice is held for review instead of approved.
 
@@ -372,6 +374,8 @@ anchored       budget                            sentences       reject
 | `NO_BENCHMARK` | info | No reference price matched a line |
 | `DUPLICATE_EVIDENCE` | high | A delivery photo's SHA-256 matches earlier evidence |
 | `AI_CATEGORY_CONCERN` | medium | **AI advisory:** a line's description clearly doesn't fit its declared (permitted) category |
+| `DOCUMENT_MISMATCH` | high / medium | The attached PDF differs from the form or the registry: total, lines, quantity, unit price, invoice or registration number (high); supplier name, or not an invoice (medium) |
+| `DOCUMENT_NOT_READ` | info | AI is on but the PDF couldn't be read; compare it by hand |
 
 **Recommendation:** any `PURPOSE_MISMATCH` → `REJECT`. Any other high or medium flag → `HOLD_FOR_REVIEW`. Otherwise → `APPROVE`. Approving against a flag requires a written reason and records `overrode_ai = true`.
 
@@ -511,7 +515,8 @@ P2 has the final say on technical calls, and P5 has the final say on scope and t
 | Frontend: public dashboard, supplier, review, audit, delivery pages | ✅ live on Northflank with real sign-in; mock mode kept as a fallback |
 | Deterministic rules analysis | ✅ live |
 | Gemini explanations + `AI_CATEGORY_CONCERN`, with guardrails and model fallback | ✅ live (25 Deno tests for rules and AI) |
-| PDF extraction by the LLM | ⏳ not in this MVP: the supplier enters line items, and the PDF is stored and hash-anchored |
+| AI reads the invoice PDF and code compares it with the form (`DOCUMENT_MISMATCH`) | ✅ built (13 Deno tests) |
+| Price matching for form-submitted lines (catalogue by category + description) | ✅ built (7 Deno tests) |
 | BNB testnet deployment | ⏳ deploy-ready; the faucet needs a mainnet balance |
 
 ---

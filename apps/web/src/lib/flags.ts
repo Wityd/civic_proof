@@ -7,6 +7,7 @@ const HIGH: FlagCode[] = [
   'ARITHMETIC_MISMATCH',
   'BUDGET_EXCEEDED',
   'DUPLICATE_EVIDENCE',
+  'DOCUMENT_MISMATCH',
 ]
 
 export function flagSeverity(code: FlagCode): 'high' | 'medium' | 'info' {
