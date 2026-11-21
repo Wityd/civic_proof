@@ -127,6 +127,40 @@ export const ChatIcon = (p: IconProps) => (
   </Svg>
 )
 
+export const ArrowUpRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 17 17 7M8 7h9v9" />
+  </Svg>
+)
+
+export const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </Svg>
+)
+
+export const FlagIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+  </Svg>
+)
+
+export const PercentIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 5 5 19" />
+    <circle cx="7" cy="7" r="2.5" />
+    <circle cx="17" cy="17" r="2.5" />
+  </Svg>
+)
+
+export const SendIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 12h12M12 6l6 6-6 6" />
+    <path d="M20 5v14" />
+  </Svg>
+)
+
 // Filled brand marks for profile links.
 export const LinkedInIcon = ({ size = 18, ...rest }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...rest}>

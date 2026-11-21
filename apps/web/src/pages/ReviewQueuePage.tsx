@@ -1,8 +1,10 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FlagChip } from '../components/FlagChip'
+import { ArrowUpRightIcon, FlagIcon, GavelIcon, ScanIcon, WalletIcon } from '../components/landing/icons'
 import { RequireRole } from '../components/RequireRole'
+import { PageHeader, SegmentedTabs, StatTile, type Tone } from '../components/ui'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../lib/api'
 import { formatDate } from '../lib/dates'
@@ -26,6 +28,13 @@ const TABS: { key: string; label: string; hint: string; statuses: InvoiceStatus[
   { key: 'pay', label: 'Ready to pay', hint: 'Approved. Release the payment.', statuses: ['approved', 'payment_failed'] },
 ]
 const QUEUE_STATUSES = TABS.flatMap((t) => t.statuses)
+
+const TILE: Record<string, { tone: Tone; icon: ReactNode }> = {
+  analysis: { tone: 'plain', icon: <ScanIcon size={15} /> },
+  decide: { tone: 'sky', icon: <GavelIcon size={15} /> },
+  hold: { tone: 'amber', icon: <FlagIcon size={15} /> },
+  pay: { tone: 'mint', icon: <WalletIcon size={15} /> },
+}
 
 function ReviewQueue() {
   const navigate = useNavigate()
@@ -63,34 +72,32 @@ function ReviewQueue() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Review queue</h1>
-        <p className="mt-1 text-slate-500">AI recommends; authorised humans decide.</p>
-      </div>
+      <PageHeader greet title="Review queue" subtitle="Here's what needs your attention. AI recommends; authorised humans decide." />
+
+      {/* One tile per stage: how many invoices and how much money is waiting there. */}
+      {queue.data && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {TABS.map((t) => (
+            <StatTile
+              key={t.key}
+              tone={TILE[t.key].tone}
+              icon={TILE[t.key].icon}
+              label={t.label}
+              value={inTab(t.key).length}
+              caption={formatMoney(inTab(t.key).reduce((s, i) => s + i.total_cents, 0))}
+            />
+          ))}
+        </div>
+      )}
 
       <section className="rounded-card bg-white shadow-card">
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-4 pb-3">
-          {TABS.map((t) => {
-            const count = inTab(t.key).length
-            return (
-              <button
-                key={t.key}
-                onClick={() => setChosen(t.key)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap ${
-                  tab === t.key ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {t.label}
-                {queue.data && (
-                  <span
-                    className={`ml-1.5 rounded-full px-1.5 text-xs ${count ? 'bg-slate-800 text-white' : 'opacity-50'}`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
+        <div className="border-b border-slate-100 px-4 pt-4 pb-4">
+          <SegmentedTabs
+            label="Review stages"
+            active={tab}
+            onChange={setChosen}
+            tabs={TABS.map((t) => ({ key: t.key, label: t.label, count: queue.data ? inTab(t.key).length : undefined }))}
+          />
         </div>
 
         <p className="px-6 pt-4 text-sm text-slate-500">{current.hint}</p>
@@ -123,7 +130,7 @@ function ReviewQueue() {
         {shown.length > 0 && (
           <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <thead className="text-[11px] tracking-wider text-slate-400 uppercase">
                 <tr>
                   <th className="px-6 py-3 font-semibold">Invoice</th>
                   <th className="px-6 py-3 font-semibold">Supplier</th>
@@ -138,7 +145,7 @@ function ReviewQueue() {
                   <tr
                     key={inv.id}
                     onClick={() => navigate(`/review/${inv.id}`)}
-                    className="cursor-pointer align-top hover:bg-slate-50"
+                    className="group cursor-pointer align-top transition hover:bg-slate-50/80"
                   >
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-900">{inv.invoice_number}</p>
@@ -171,7 +178,10 @@ function ReviewQueue() {
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-medium whitespace-nowrap text-brand-700">Open →</span>
+                      <span className="inline-grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-700 transition group-hover:bg-navy-900 group-hover:text-white">
+                        <ArrowUpRightIcon size={15} />
+                        <span className="sr-only">Open</span>
+                      </span>
                     </td>
                   </tr>
                 ))}
