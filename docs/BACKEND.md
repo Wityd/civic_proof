@@ -59,7 +59,8 @@ Responses use `{data: ...}` or `{error: {code, message}}`.
 | `GET /me`, `/invoices`, `/invoices/:id` | Verified identity, owned suppliers, multi-status filters and RLS-scoped details with approval actor display names |
 | `POST /projects`, `/suppliers`, `/projects/:id/milestones` | Municipality creates records; simulated project funding is atomic |
 | `POST /invoices` | Supplier PDF + manual JSON, byte validation, SHA-256 and atomic invoice/items/ledger insertion |
-| `POST /invoices/:id/analyse` | Municipality runs deterministic rules on submitted data |
+| `POST /invoices/extract` | Supplier uploads a PDF (`file`, `project_id`, `supplier_id`); Gemini reads it into a form **draft**: `invoice_number`, `invoice_date`, `line_items` (category only if permitted, else null), `total_cents`, `confidence`, `warnings`. Stores nothing, no chain transaction. 422 `EXTRACTION_FAILED` when it can't be read |
+| `POST /invoices/:id/analyse` | Municipality runs the deterministic rules (with catalogue matching); with `AI_MODE=llm`, Gemini also reads the PDF (`DOCUMENT_MISMATCH` against the form) and words the explanation |
 | `POST /invoices/:id/approve`, `/hold`, `/reject` | Atomic decisions, reasons, state changes and fund reservations |
 | `POST /payments/:invoiceId/execute` | Municipality; idempotent release in the active ledger mode |
 | `POST /milestones/:id/register`, `/verify` | Municipality registers; municipality/auditor officially verifies |
