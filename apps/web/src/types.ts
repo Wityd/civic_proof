@@ -1,6 +1,7 @@
 // API shapes, matching supabase/functions/civicproof-api on main.
-// Fields marked "REQUESTED" were asked of P2 and may not exist yet, so they are optional.
-// LedgerMode etc. mirror packages/shared/types.ts (not imported yet: this branch predates it).
+// LedgerMode/TxStatus mirror packages/shared/types.ts. They are copied, not imported, on
+// purpose: deploy/web/Dockerfile only copies apps/web into the build, so an import from
+// ../packages would break the Northflank build.
 
 export type Role = 'citizen' | 'supplier' | 'municipality' | 'auditor'
 
@@ -34,7 +35,7 @@ export interface DemoUser {
 
 export interface Milestone {
   id: string
-  project_id: string
+  project_id?: string // not sent inside the project response
   code: string
   title: string
   description: string
@@ -90,7 +91,7 @@ export interface Project {
   wallet_address: string | null
   invoices: PublicInvoice[]
   transactions: Transaction[]
-  milestones?: Milestone[] // REQUESTED
+  milestones?: Milestone[] // optional so older API responses still type-check
 }
 
 // GET /projects/:id/wallet
