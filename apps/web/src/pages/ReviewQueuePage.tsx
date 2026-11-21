@@ -50,6 +50,7 @@ function ReviewQueue() {
     const d = details[analysedIds.indexOf(id)]?.data
     return d ? invoiceFlags(d) : null
   }
+  const flagsFailed = (id: string) => !!details[analysedIds.indexOf(id)]?.error
 
   const all = queue.data ?? []
   const inTab = (key: string) => all.filter((i) => TABS.find((t) => t.key === key)!.statuses.includes(i.status))
@@ -153,7 +154,9 @@ function ReviewQueue() {
                       {inv.status === 'submitted' ? (
                         <span className="text-xs text-slate-400">Not analysed yet</span>
                       ) : flagsOf(inv.id) === null ? (
-                        <span className="text-xs text-slate-400">Loading…</span>
+                        <span className="text-xs text-slate-400">
+                          {flagsFailed(inv.id) ? 'Could not load. Open the invoice to see them.' : 'Loading…'}
+                        </span>
                       ) : flagsOf(inv.id)!.length === 0 ? (
                         <span className="text-xs font-medium text-brand-700">No flags</span>
                       ) : (

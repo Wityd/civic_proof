@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Money } from '../components/Money'
+import { MoneyTimeline } from '../components/MoneyTimeline'
 import { StatusBadge } from '../components/StatusBadge'
 import { SimulatedBadge, TxHash } from '../components/TxHash'
 import { useViewAs } from '../context/ViewAsContext'
@@ -10,6 +11,7 @@ import { formatDate, formatDateTime } from '../lib/dates'
 import { movesMoney, releaseTx, TX_LABEL } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
 import { useProject } from '../lib/queries'
+import { publicTimeline } from '../lib/timeline'
 import type { LedgerMode, Milestone, PublicInvoice, Transaction, Wallet } from '../types'
 
 export function ProjectDetailPage() {
@@ -119,7 +121,7 @@ export function ProjectDetailPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((inv) => (
-                  <InvoiceRow key={inv.id} inv={inv} payment={releaseTx(transactions, inv.id)} />
+                  <InvoiceRow key={inv.id} inv={inv} transactions={transactions} />
                 ))}
               </tbody>
             </table>
@@ -188,12 +190,23 @@ function ModeBadge({ mode }: { mode: LedgerMode }) {
   )
 }
 
-function InvoiceRow({ inv, payment }: { inv: PublicInvoice; payment: Transaction | undefined }) {
+function InvoiceRow({ inv, transactions }: { inv: PublicInvoice; transactions: Transaction[] }) {
+  const [open, setOpen] = useState(false)
+  const payment = releaseTx(transactions, inv.id)
   return (
+    <>
     <tr className="align-top">
       <td className="px-6 py-4">
         <p className="font-semibold text-slate-900">{inv.invoice_number}</p>
         <p className="text-xs text-slate-500">{formatDate(inv.invoice_date)}</p>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
+        >
+          {open ? 'Hide the money trail ▴' : 'Follow the money ▾'}
+        </button>
       </td>
       <td className="px-6 py-4 text-slate-700">{inv.supplier_name}</td>
       <td className="px-6 py-4 text-right font-semibold whitespace-nowrap text-slate-900 tabular-nums">
@@ -206,6 +219,17 @@ function InvoiceRow({ inv, payment }: { inv: PublicInvoice; payment: Transaction
         <TxHash hash={payment?.tx_hash ?? null} mode={payment?.mode ?? null} />
       </td>
     </tr>
+    {open && (
+      <tr className="bg-slate-50/70">
+        <td colSpan={5} className="px-6 pt-2 pb-5">
+          <p className="mb-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            Follow the money · {inv.invoice_number}
+          </p>
+          <MoneyTimeline steps={publicTimeline(inv, transactions)} />
+        </td>
+      </tr>
+    )}
+    </>
   )
 }
 
