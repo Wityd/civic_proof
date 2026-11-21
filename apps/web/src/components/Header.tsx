@@ -23,7 +23,7 @@ export function Header() {
             C
           </span>
           <span className="leading-tight">
-            <span className="block font-bold text-slate-900">CivicProof</span>
+            <span className="block font-heading font-bold text-slate-900">CivicProof</span>
             <span className="block text-xs text-slate-500">Follow the money. Prove the service.</span>
           </span>
         </Link>
