@@ -2,6 +2,8 @@
 
 > **Follow the money. Prove the service.**
 
+[![CI](https://github.com/Wityd/civic_proof/actions/workflows/ci.yml/badge.svg)](https://github.com/Wityd/civic_proof/actions/workflows/ci.yml)
+
 CivicProof is a public-spending accountability platform built for the **BACISS 2026 hackathon** (Blockchain, AI and Cloud Innovation Startup School). It ring-fences each municipal project's budget in its own wallet contract on a blockchain. AI screens every supplier invoice before any money leaves, an authorised human decides, and every payment, hold and rejection is visible to citizens.
 
 > ⚠️ **Simulated funds only.** Every project, supplier, price and amount in this repository is fictional. **DemoZAR (dZAR)** is a labelled test token on public **testnets** (Avalanche Fuji, BNB Smart Chain testnet). It is not real, backed or redeemable currency.
@@ -190,7 +192,7 @@ civic_proof/
 cd apps/web && npm ci && npm run dev
 ```
 
-With `VITE_USE_MOCKS=true` the app runs on local mock data and needs no Supabase at all (`VITE_MOCK_SCENARIO=start` begins from an untouched project). The hosted build is described in [`deploy/README.md`](deploy/README.md).
+Unit tests: `npm test` (money formatting, flags, ledger and the follow-the-money timeline). With `VITE_USE_MOCKS=true` the app runs on local mock data and needs no Supabase at all (`VITE_MOCK_SCENARIO=start` begins from an untouched project). The hosted build is described in [`deploy/README.md`](deploy/README.md).
 
 ### Supabase (P2)
 
@@ -522,6 +524,7 @@ P2 has the final say on technical calls, and P5 has the final say on scope and t
 | Price matching for form-submitted lines (catalogue by category + description) | ✅ built (7 Deno tests) |
 | `POST /invoices/extract`: the AI drafts the supplier's form from the PDF | ✅ built (10 Deno tests) |
 | Possible supplier relationships (`SUPPLIER_LINKED`) | ✅ built (5 Deno tests) |
+| Automated tests on every pull request (GitHub Actions): 186 tests across contracts, wallet service, backend and web app | ✅ |
 | BNB testnet deployment | ⏳ deploy-ready; the faucet needs a mainnet balance |
 
 ---
