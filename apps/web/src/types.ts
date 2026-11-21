@@ -166,6 +166,7 @@ export type FlagCode =
   | 'AI_CATEGORY_CONCERN'
   | 'DOCUMENT_MISMATCH'
   | 'DOCUMENT_NOT_READ'
+  | 'SUPPLIER_LINKED'
 
 export type Recommendation = 'APPROVE' | 'HOLD_FOR_REVIEW' | 'REJECT'
 

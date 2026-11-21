@@ -12,7 +12,7 @@ const HIGH: FlagCode[] = [
 
 export function flagSeverity(code: FlagCode): 'high' | 'medium' | 'info' {
   if (HIGH.includes(code)) return 'high'
-  if (code === 'SUPPLIER_REVIEW_REQUIRED' || code === 'AI_CATEGORY_CONCERN') return 'medium'
+  if (code === 'SUPPLIER_REVIEW_REQUIRED' || code === 'AI_CATEGORY_CONCERN' || code === 'SUPPLIER_LINKED') return 'medium'
   return 'info'
 }
 
