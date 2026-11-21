@@ -4,7 +4,7 @@
 //
 // VITE_MOCK_SCENARIO=start → all 4 demo invoices just submitted, wallet untouched.
 // VITE_MOCK_SCENARIO=end (default) → the finished demo story.
-import { EVIDENCE_UPLOAD_PARTS, INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
+import { EVIDENCE_UPLOAD_PARTS, EXTRACT_PATH, EXTRACT_UPLOAD_PARTS, INVOICE_UPLOAD_PARTS } from '../lib/apiContract'
 import { getViewAsId } from '../lib/viewAs'
 import type {
   AiReview,
@@ -13,6 +13,7 @@ import type {
   DecisionResult,
   DemoUser,
   Evidence,
+  ExtractedInvoice,
   Invoice,
   InvoiceDetail,
   InvoiceItem,
@@ -497,6 +498,80 @@ function confirmDelivery(id: string, body: unknown): MockResult {
   return ok([row], 201) // PostgREST insert returns an array of rows
 }
 
+// ---------- POST /invoices/extract (PROPOSED endpoint) ----------
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
+type DraftLine = ExtractedInvoice['line_items'][number]
+const line = (description: string, category: string | null, quantity: number, unit: number): DraftLine => ({
+  description,
+  category,
+  quantity,
+  unit_price_cents: unit,
+  line_total_cents: Math.round(quantity * unit),
+})
+
+// A believable AI draft per demo company. A file name containing "unreadable" simulates a failure.
+async function extractInvoice(body: unknown): Promise<MockResult> {
+  const denied = requireRole('supplier')
+  if (denied) return denied
+  if (!(body instanceof FormData)) return fail(400, 'VALIDATION', 'Use multipart/form-data.')
+  const file = body.get(EXTRACT_UPLOAD_PARTS.file)
+  if (!(file instanceof File) || file.size === 0) return fail(400, 'VALIDATION', 'A file of 1 byte to 10 MiB is required.')
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    return fail(400, 'VALIDATION', 'A PDF is required.')
+  }
+  const supplierId = String(body.get(EXTRACT_UPLOAD_PARTS.supplier_id) ?? '')
+  if (supplierId && !currentUser()!.supplier_ids.includes(supplierId)) {
+    return fail(403, 'FORBIDDEN', 'This action is not permitted.')
+  }
+
+  await sleep(2000) // the AI reading the document
+  const name = file.name.toLowerCase()
+  if (name.includes('unreadable')) {
+    return fail(422, 'EXTRACTION_FAILED', 'The AI could not read this invoice. Please fill in the details yourself.')
+  }
+
+  let draft: ExtractedInvoice
+  if (supplierId === '20000000-0000-4000-8000-000000000002') {
+    draft = {
+      invoice_number: 'PD-0163',
+      invoice_date: daysAgo(1),
+      line_items: [line('250mm HDPE pipe 12m', 'pipes', 20, 1200000)],
+      total_cents: 24000000,
+      confidence: 0.91,
+      warnings: [],
+    }
+  } else if (supplierId === '20000000-0000-4000-8000-000000000003') {
+    draft = {
+      invoice_number: 'SM-2311',
+      invoice_date: daysAgo(1),
+      line_items: [line('4x4 double-cab bakkie', null, 1, 78500000)],
+      total_cents: 78500000,
+      confidence: 0.95,
+      warnings: ['No project category fits "4x4 double-cab bakkie". Choose one, or remove the line.'],
+    }
+  } else if (name.includes('install')) {
+    draft = {
+      invoice_number: 'BB-1053',
+      invoice_date: daysAgo(1),
+      line_items: [line('Tank installation (base, plumbing and connection)', 'installation', 8, 800000)],
+      total_cents: 6400000,
+      confidence: 0.94,
+      warnings: [],
+    }
+  } else {
+    draft = {
+      invoice_number: 'BB-1052',
+      invoice_date: daysAgo(2),
+      line_items: [line('10,000 L polyethylene water tank', 'water_storage', 8, 1480000)],
+      total_cents: 11840000,
+      confidence: 0.96,
+      warnings: [],
+    }
+  }
+  return ok(draft)
+}
+
 // ---------- router ----------
 
 export async function mockRequest(
@@ -510,6 +585,7 @@ export async function mockRequest(
 
   let m: RegExpMatchArray | null
   if (path === '/invoices') return createInvoice(body)
+  if (path === EXTRACT_PATH) return extractInvoice(body)
   if ((m = path.match(/^\/invoices\/([^/]+)\/analyse$/))) return analyse(m[1])
   if ((m = path.match(/^\/invoices\/([^/]+)\/(approve|hold|reject)$/))) {
     return decide(m[1], m[2] as Approval['decision'], body)
