@@ -64,9 +64,6 @@ function ProjectCard({ project: p }: { project: Project }) {
           <h2 className="mt-1 text-lg font-bold text-slate-900 group-hover:text-brand-700">{p.name}</h2>
           <p className="text-sm text-slate-500">{p.location}</p>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
-          Fictional
-        </span>
       </div>
 
       <div className="mt-6">

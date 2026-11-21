@@ -59,7 +59,7 @@
             "invoice_unit_cents": 1480000,
             "benchmark_total_cents": 12000000,
             "excess_cents": 0,
-            "source": "Seeded fictional demo data"
+            "source": "Reference price list"
           }
         ],
         "potential_excess_cents": 0,
@@ -157,7 +157,7 @@
             "invoice_unit_cents": 1200000,
             "benchmark_total_cents": 10400000,
             "excess_cents": 13600000,
-            "source": "Seeded fictional demo data"
+            "source": "Reference price list"
           }
         ],
         "potential_excess_cents": 13600000,
@@ -329,7 +329,7 @@
             "invoice_unit_cents": 800000,
             "benchmark_total_cents": 6800000,
             "excess_cents": 0,
-            "source": "Seeded fictional demo data"
+            "source": "Reference price list"
           }
         ],
         "potential_excess_cents": 0,

@@ -42,7 +42,7 @@ export function SignInDialog({ role, onDone, onCancel }: { role: Role; onDone: (
           Sign in as {LABEL[role]}
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Demo account <span className="font-mono text-slate-700">{demoEmail(role)}</span>. You only need to do this
+          Account <span className="font-mono text-slate-700">{demoEmail(role)}</span>. You only need to do this
           once on this browser.
         </p>
         <label className="mt-4 block">

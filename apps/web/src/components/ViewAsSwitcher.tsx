@@ -20,7 +20,8 @@ export function ViewAsSwitcher() {
         <option value="">Public (not signed in)</option>
         {users.map((u) => (
           <option key={u.id} value={u.id}>
-            {ROLE_LABEL[u.role]}: {u.display_name}
+            {ROLE_LABEL[u.role]}
+            {u.display_name && `: ${u.display_name}`}
           </option>
         ))}
       </select>

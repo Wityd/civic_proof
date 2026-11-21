@@ -1,8 +1,9 @@
 // Public landing page at "/". Copy: landing-copy.md. Layout refs: Travexa & LucenAI
 // (pill nav, gradient hero, chips, bento), Arquivo & Balad (dark bands, arches, footer).
-// All figures are the fixed, fictional demo story.
-import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+// Figures are the fixed Kgotso Valley story (not live data).
+import { useEffect, type ReactNode } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { DevBadge } from '../components/DevBadge'
 import { Money } from '../components/Money'
 import { HeroPreview } from '../components/landing/HeroPreview'
 import {
@@ -27,12 +28,17 @@ import { CP001_PATH, scrollToSection } from '../components/landing/scroll'
 import { formatMoney } from '../lib/money'
 
 export function LandingPage() {
+  // Arriving from another page via "/#section" (e.g. "How it works" on /team): scroll there.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (!hash) return
+    const el = document.getElementById(hash.slice(1))
+    if (el) el.scrollIntoView({ block: 'start' })
+  }, [hash])
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      <div className="bg-slate-800 px-4 py-1 text-center text-xs text-slate-200">
-        Fictional demo data: all names, places and amounts are made up.
-      </div>
-
+      <DevBadge />
       <div className="relative overflow-hidden bg-gradient-to-b from-brand-50 via-sky-50 to-white pt-5">
         <div aria-hidden="true" className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-brand-100/60 blur-3xl" />
         <div aria-hidden="true" className="absolute -top-16 right-0 h-72 w-72 rounded-full bg-sky-100 blur-3xl" />
@@ -96,7 +102,7 @@ function Hero() {
       >
         Made for BACISS 2026
         <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 font-semibold text-white">
-          Try the demo <ArrowRightIcon size={12} />
+          Explore a project <ArrowRightIcon size={12} />
         </span>
       </Link>
 
@@ -269,7 +275,6 @@ function Helps() {
               <p className="font-semibold">+131% above the usual price</p>
               <p className="mt-0.5">Possible overcharge {formatMoney(13600000)}. AI suggests: hold for review.</p>
             </div>
-            <p className="mt-3 text-[11px] text-slate-400">Fictional demo data</p>
           </div>
         </BentoCard>
 
@@ -321,7 +326,7 @@ function Numbers() {
     <section className="relative overflow-hidden bg-navy-900 px-4 py-16 text-white sm:py-24">
       <div aria-hidden="true" className="absolute -right-24 -bottom-24 h-80 w-80 rounded-full bg-brand-600/30 blur-3xl" />
       <div className="relative mx-auto max-w-6xl">
-        <SectionHeading title="What happened in our demo project" light />
+        <SectionHeading title="What happened in Kgotso Valley" light />
         <dl className="mt-12 grid gap-px overflow-hidden rounded-3xl bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="bg-navy-900 p-6">
@@ -331,7 +336,6 @@ function Numbers() {
             </div>
           ))}
         </dl>
-        <p className="mt-6 text-center text-sm text-white/60 italic">All demo data is made up.</p>
       </div>
     </section>
   )
@@ -402,7 +406,7 @@ function Featured() {
         </div>
         <div className="relative bg-gradient-to-br from-brand-600 to-brand-800 p-8 sm:p-12">
           <div className="rounded-2xl bg-white p-5 text-slate-900 shadow-float">
-            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">CP001 · Demo figures</p>
+            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">CP001 · Project figures</p>
             <dl className="mt-3 space-y-3">
               {[
                 { k: 'Allocated', v: 200000000, cls: 'text-slate-900' },
@@ -415,7 +419,7 @@ function Featured() {
                 </div>
               ))}
             </dl>
-            <p className="mt-2 text-[11px] text-slate-400">4 invoices · 4 village sites · all made up</p>
+            <p className="mt-2 text-[11px] text-slate-400">4 invoices · 4 village sites</p>
           </div>
         </div>
       </div>
@@ -575,7 +579,7 @@ function ClosingCta() {
           Go see where the money <span className="font-serif font-normal text-brand-700 italic">went</span>
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
-          Open the demo project and follow each payment from the wallet to the finished work.
+          Open the Kgotso Valley project and follow each payment from the wallet to the finished work.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link to="/projects" className={btnDark}>

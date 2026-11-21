@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { scrollToSection } from './scroll'
 import { MenuIcon, XIcon } from './icons'
+import { SectionLink } from './SectionLink'
 
 // Floating pill nav (refs: Travexa, LucenAI). The app pages keep their own header.
 const LINKS: { label: string; to?: string; section?: string }[] = [
@@ -9,6 +9,7 @@ const LINKS: { label: string; to?: string; section?: string }[] = [
   { label: 'How it works', section: 'how-it-works' },
   { label: 'Projects', to: '/projects' },
   { label: 'About', section: 'about' },
+  { label: 'Team', to: '/team' },
 ]
 
 export function LandingNav() {
@@ -34,9 +35,9 @@ export function LandingNav() {
                 {l.label}
               </Link>
             ) : (
-              <a key={l.label} href={`#${l.section}`} onClick={scrollToSection(l.section!)} className={linkCls}>
+              <SectionLink key={l.label} section={l.section!} className={linkCls}>
                 {l.label}
-              </a>
+              </SectionLink>
             ),
           )}
         </div>
@@ -67,17 +68,14 @@ export function LandingNav() {
                 {l.label}
               </Link>
             ) : (
-              <a
+              <SectionLink
                 key={l.label}
-                href={`#${l.section}`}
-                onClick={(e) => {
-                  scrollToSection(l.section!)(e)
-                  setOpen(false)
-                }}
+                section={l.section!}
+                onClick={() => setOpen(false)}
                 className="block rounded-2xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50"
               >
                 {l.label}
-              </a>
+              </SectionLink>
             ),
           )}
           <Link
