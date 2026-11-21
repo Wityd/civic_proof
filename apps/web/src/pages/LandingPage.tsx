@@ -20,7 +20,6 @@ import {
   SearchIcon,
   TruckIcon,
   WalletIcon,
-  XIcon,
 } from '../components/landing/icons'
 import { LandingFooter } from '../components/landing/LandingFooter'
 import { LandingNav } from '../components/landing/LandingNav'
@@ -55,7 +54,7 @@ export function LandingPage() {
         <Featured />
         <Who />
         <ResidentsSay />
-        <CanCant />
+        <WhatItDoes />
         <BuiltWith />
         <ClosingCta />
       </main>
@@ -98,10 +97,10 @@ function Hero() {
     <div className="relative px-4 pt-14 pb-20 text-center sm:pt-20 sm:pb-24">
       <Link
         to={CP001_PATH}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 py-1 pr-1 pl-3 text-xs font-medium text-slate-600 shadow-sm backdrop-blur hover:bg-white"
+        className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white/80 p-1.5 pl-4 text-xs leading-none font-medium whitespace-nowrap text-slate-600 shadow-sm backdrop-blur hover:bg-white"
       >
         Made for BACISS 2026
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 font-semibold text-white">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-3 py-1.5 leading-none font-semibold text-white">
           Explore a project <ArrowRightIcon size={12} />
         </span>
       </Link>
@@ -119,7 +118,7 @@ function Hero() {
       {/* "Watch the demo" is hidden until a demo video exists. */}
       <div className="mt-8 flex justify-center">
         <Link to="/projects" className={btnDark}>
-          See the dashboard <ArrowRightIcon size={16} />
+          Go to dashboard <ArrowRightIcon size={16} />
         </Link>
       </div>
 
@@ -130,41 +129,35 @@ function Hero() {
 
 // ---------- 2. Things we check for ----------
 
-const WATCH = [
-  'Prices that are too high',
-  'The same bill sent twice',
-  'Spending that has nothing to do with the project',
-  'Brand-new suppliers',
-  'Spending more than the budget',
-  'The same delivery photo used twice',
-  'Residents saying it never arrived',
+// Each check gets its own small coloured icon tile (ref: stacked integration chips).
+const WATCH: { label: string; icon: ReactNode; tile: string }[] = [
+  { label: 'Prices that are too high', icon: <AlertIcon size={15} />, tile: 'bg-red-500' },
+  { label: 'The same bill sent twice', icon: <ScanIcon size={15} />, tile: 'bg-amber-500' },
+  { label: 'Spending that has nothing to do with the project', icon: <SearchIcon size={15} />, tile: 'bg-violet-500' },
+  { label: 'Brand-new suppliers', icon: <BuildingIcon size={15} />, tile: 'bg-sky-500' },
+  { label: 'Spending more than the budget', icon: <WalletIcon size={15} />, tile: 'bg-rose-500' },
+  { label: 'The same delivery photo used twice', icon: <CameraIcon size={15} />, tile: 'bg-orange-500' },
+  { label: 'Residents saying it never arrived', icon: <ChatIcon size={15} />, tile: 'bg-brand-600' },
 ]
 
 function WatchList() {
   return (
-    <section aria-labelledby="watch-heading" className="border-y border-slate-100 bg-white py-10">
+    <section aria-labelledby="watch-heading" className="border-y border-slate-100 bg-white px-4 py-12">
       <p id="watch-heading" className="text-center text-sm font-medium text-slate-500">
         What CivicProof looks out for
       </p>
-      {/* Scrolling row (ref: Travexa). The list is doubled for a seamless loop; the copy is hidden from screen readers. */}
-      <div className="relative mt-5 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div className="flex w-max animate-marquee gap-3 motion-reduce:w-full motion-reduce:flex-wrap motion-reduce:justify-center">
-          {[...WATCH, ...WATCH].map((t, i) => (
-            <span
-              key={i}
-              aria-hidden={i >= WATCH.length}
-              className={`inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium whitespace-nowrap text-slate-700 shadow-sm ${
-                i >= WATCH.length ? 'motion-reduce:hidden' : ''
-              }`}
-            >
-              <span className="text-amber-600">
-                <AlertIcon size={14} />
-              </span>
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* Stacked, wrapping cluster of chips. */}
+      <ul className="mx-auto mt-6 flex max-w-4xl flex-wrap justify-center gap-3">
+        {WATCH.map((w) => (
+          <li
+            key={w.label}
+            className="inline-flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white py-2 pr-4 pl-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none"
+          >
+            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white ${w.tile}`}>{w.icon}</span>
+            {w.label}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -174,7 +167,7 @@ function WatchList() {
 function Intro() {
   return (
     <Section>
-      <p className="mx-auto max-w-4xl text-center text-3xl leading-tight font-semibold tracking-tight text-slate-900 sm:text-5xl">
+      <p className="mx-auto max-w-4xl text-center font-heading text-3xl leading-tight font-bold tracking-tight text-slate-900 sm:text-5xl">
         If it's public money, <span className="text-slate-400">people should be able to see where it went.</span>
       </p>
       <p className="mx-auto mt-6 max-w-2xl text-center text-lg text-slate-600">
@@ -509,62 +502,81 @@ function ResidentsSay() {
   )
 }
 
-// ---------- 10. What it can and can't do ----------
+// ---------- 10. What CivicProof does ----------
 
-function CanCant() {
+const DOES = [
+  { title: 'Flags risky invoices', body: 'The AI checks every invoice against normal prices and the project budget before anyone is paid.' },
+  { title: 'Puts a person in charge', body: 'Every warning goes to an authorised official, who approves, holds or rejects it.' },
+  { title: 'Keeps a permanent record', body: 'Every payment and decision is saved on the blockchain, where nobody can quietly change it.' },
+  { title: 'Lets residents confirm', body: 'People who live there say whether the work really happened before the last payment goes out.' },
+]
+
+function WhatItDoes() {
   return (
     <Section id="about" className="bg-slate-50">
-      <SectionHeading title="What CivicProof can and can't do" />
-      <p className="mx-auto mt-5 max-w-3xl text-center text-lg text-slate-600">
-        The AI points out invoices that look risky, but it can't tell whether someone did something wrong. The
-        blockchain stops records from being changed, but it can't prove what's written in them is true. That's why a
-        person reviews every warning, and why residents help confirm deliveries.
-      </p>
-      <div className="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
-        <div className="rounded-3xl border border-brand-100 bg-white p-6 shadow-card">
-          <p className="font-semibold text-brand-700">It can</p>
-          <ul className="mt-3 space-y-3 text-sm text-slate-700">
-            {['Point out invoices that look risky', 'Stop records from being changed later'].map((t) => (
-              <li key={t} className="flex gap-3">
-                <span className="mt-0.5 text-brand-600">
-                  <CheckIcon size={18} />
-                </span>
-                {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
-          <p className="font-semibold text-slate-700">It can't</p>
-          <ul className="mt-3 space-y-3 text-sm text-slate-700">
-            {["Tell whether someone did something wrong", "Prove that what's written in a record is true"].map((t) => (
-              <li key={t} className="flex gap-3">
-                <span className="mt-0.5 text-slate-400">
-                  <XIcon size={18} />
-                </span>
-                {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <SectionHeading
+        title="What CivicProof does"
+        sub="It catches problems before money moves, and keeps proof of every payment for anyone to see."
+      />
+      <ul className="mx-auto mt-10 grid max-w-5xl gap-5 sm:grid-cols-2">
+        {DOES.map((d) => (
+          <li key={d.title} className="flex gap-4 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">
+              <CheckIcon size={20} />
+            </span>
+            <div>
+              <h3 className="font-semibold text-slate-900">{d.title}</h3>
+              <p className="mt-1 text-sm text-slate-600">{d.body}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </Section>
   )
 }
 
 // ---------- 11. Built with (ref: LucenAI logo row) ----------
 
+// Logos live in public/logos. Each file has different empty space around its artwork, so each
+// gets its own height (and Gemini a small nudge up, because its sparkle sits above the word)
+// to look the same size and sit on one centre line.
+const STACK: { name: string; logo: string; size: string }[] = [
+  { name: 'React', logo: '/logos/react.svg', size: 'h-9 sm:h-10' },
+  { name: 'Supabase', logo: '/logos/supabase.svg', size: 'h-7 sm:h-8' },
+  { name: 'Avalanche', logo: '/logos/avalanche.svg', size: 'h-6 sm:h-7' },
+  { name: 'Gemini', logo: '/logos/gemini.svg', size: 'h-9 sm:h-10 -translate-y-1' },
+]
+// Enough copies that one half of the track is wider than the screen, so the loop never shows a gap.
+const STACK_HALF = [...STACK, ...STACK, ...STACK]
+
 function BuiltWith() {
   return (
-    <section aria-labelledby="built-heading" className="border-y border-slate-100 px-4 py-10">
-      <p id="built-heading" className="text-center text-sm font-medium text-slate-500">
+    <section aria-labelledby="built-heading" className="border-y border-slate-100 py-10">
+      <p id="built-heading" className="text-center text-base font-medium tracking-[0.18em] text-slate-500 uppercase sm:text-lg">
         Built with
       </p>
-      <ul className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-x-12 gap-y-4 text-xl font-semibold text-slate-400">
-        {['React', 'Supabase', 'Avalanche', 'Gemini'].map((t) => (
-          <li key={t}>{t}</li>
-        ))}
-      </ul>
+      {/* Right-to-left endless loop (one pass = 90 s). Hovering pauses it; reduced motion shows one still, centred row. */}
+      <div className="relative mt-7 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+        <ul className="flex w-max animate-marquee items-center [animation-duration:90s] hover:[animation-play-state:paused] motion-reduce:w-full motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:gap-y-6">
+          {[...STACK_HALF, ...STACK_HALF].map((s, i) => {
+            const copy = i >= STACK.length
+            return (
+              <li
+                key={i}
+                aria-hidden={copy}
+                className={`group flex h-16 shrink-0 items-center justify-center px-12 sm:px-16 ${copy ? 'motion-reduce:hidden' : ''}`}
+              >
+                <img
+                  src={s.logo}
+                  alt={copy ? '' : s.name}
+                  loading="lazy"
+                  className={`${s.size} w-auto opacity-60 grayscale transition duration-300 group-hover:opacity-100 group-hover:grayscale-0`}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      </div>
     </section>
   )
 }
@@ -583,7 +595,7 @@ function ClosingCta() {
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link to="/projects" className={btnDark}>
-            See the dashboard <ArrowRightIcon size={16} />
+            Go to dashboard <ArrowRightIcon size={16} />
           </Link>
           <a href="#how-it-works" onClick={scrollToSection('how-it-works')} className={btnLight}>
             How it works
