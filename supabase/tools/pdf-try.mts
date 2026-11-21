@@ -1,5 +1,5 @@
-// Try the AI PDF check locally with YOUR key: Gemini reads each invoice PDF, then the same
-// code civicproof-api uses compares it with what a supplier typed into the form.
+// Try the AI PDF features locally with YOUR key: the form draft (POST /invoices/extract), and
+// the analysis check, where the same code civicproof-api uses compares the PDF with the form.
 // Nothing is stored and no invoice is touched.
 //
 //   1. GEMINI_API_KEY=AIza... in contracts/.env (git-ignored; never commit it)
@@ -11,6 +11,7 @@
 // PDF still charges R12,000.00).
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { draftFromPdf } from '../functions/_shared/draft.ts';
 import { applyDocumentCheck, readInvoicePdf } from '../functions/_shared/extract.ts';
 import { DEMO } from '../functions/_shared/demo_contexts.ts';
 import { analyse, type AnalysisContext } from '../functions/_shared/rules.ts';
@@ -44,6 +45,18 @@ for (const file of files) {
   const d = read.doc;
   console.log(`   PDF says: ${d.supplier_name} · ${d.registration_no} · ${d.invoice_number} · ${d.invoice_date} · total R${(d.total_cents / 100).toFixed(2)}`);
   for (const l of d.line_items) console.log(`             ${l.quantity} × ${l.description} @ R${(l.unit_price_cents / 100).toFixed(2)}`);
+  // POST /invoices/extract: the draft the supplier's form would be pre-filled with.
+  const forms = FORMS[name] ?? [];
+  if (forms.length) {
+    const ctx = forms[0][1];
+    const draft = await draftFromPdf(new Uint8Array(readFileSync(file)), ctx.project.permitted_categories, ctx.supplier, env);
+    if (draft.ok) {
+      const d = draft.data;
+      console.log(`   form draft (/invoices/extract): ${d.invoice_number} · ${d.invoice_date} · total ${d.total_cents} cents · confidence ${d.confidence}`);
+      for (const l of d.line_items) console.log(`             ${l.quantity} × ${l.description} [${l.category ?? 'no category'}] @ ${l.unit_price_cents} cents`);
+      for (const w of d.warnings) console.log(`      ⚠ ${w}`);
+    } else console.log(`   form draft: ✗ ${draft.reason}`);
+  }
   for (const [label, ctx] of FORMS[name] ?? []) {
     const out = applyDocumentCheck(analyse(ctx), ctx, read, true);
     const found = out.checks.filter((c: { code: string }) => c.code === 'DOCUMENT_MISMATCH');

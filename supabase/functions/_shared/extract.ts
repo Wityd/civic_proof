@@ -72,8 +72,8 @@ export async function readInvoicePdf(pdf: Uint8Array, env: Env, fetchFn: Fetch =
 }
 
 // --- cleaning: the reply is untrusted, so keep only short, plain values ---
-const str = (v: unknown, max: number) => String(v ?? '').replace(/[^\p{L}\p{N} ()&.,'/-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
-const cents = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n >= 0 && n < 1e12 ? Math.round(n * 100) : null; };
+export const str = (v: unknown, max: number) => String(v ?? '').replace(/[^\p{L}\p{N} ()&.,'/-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+export const cents = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n >= 0 && n < 1e12 ? Math.round(n * 100) : null; };
 
 export function clean(v: unknown): DocumentFields | null {
   // deno-lint-ignore no-explicit-any
@@ -99,10 +99,10 @@ export function clean(v: unknown): DocumentFields | null {
 }
 
 // --- comparison: plain code, no AI ---
-const rand = (c: number) => 'R' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const rand = (c: number) => 'R' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const alnum = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const NAME_NOISE = new Set(['pty', 'ltd', 'limited', 'company', 'trading', 'the', 'and', 'group', 'holdings']);
-const nameWords = (s: string) => new Set(s.toLowerCase().match(/\p{L}{3,}/gu)?.filter((w) => !NAME_NOISE.has(w)) ?? []);
+export const nameWords = (s: string) => new Set(s.toLowerCase().match(/\p{L}{3,}/gu)?.filter((w) => !NAME_NOISE.has(w)) ?? []);
 
 /** Differences between the PDF, the submitted form and the registry, as review checks. */
 export function compareDocument(ctx: AnalysisContext, doc: DocumentFields) {
@@ -157,7 +157,7 @@ export function applyDocumentCheck<R extends Review>(review: R, ctx: AnalysisCon
   } as R;
 }
 
-function toBase64(bytes: Uint8Array) {
+export function toBase64(bytes: Uint8Array) {
   let s = '';
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
