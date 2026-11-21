@@ -1,0 +1,84 @@
+# CivicProof CI: every pull request and every push to main runs all the automated tests.
+# Three jobs in parallel. A red ❌ means do not merge. Nothing here deploys or needs a secret:
+# Northflank and Supabase deploy separately; the live tests in supabase/tests/*live* and
+# integration_test.ts need real credentials and are run by hand.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web app (lint, unit tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests (money, flags, ledger, follow-the-money timeline)
+        run: npm test
+      - name: Type-check and build
+        run: npm run build
+
+  edge:
+    name: Edge Function (rules, AI guardrails, PDF checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - name: Type-check civicproof-api
+        run: deno check supabase/functions/civicproof-api/index.ts
+      - name: Unit tests (rules, AI, PDF check, form draft, catalogue, linked suppliers)
+        run: deno test supabase/functions/_shared/
+
+  chain:
+    name: Contracts, wallet service, chain mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            contracts/package-lock.json
+            packages/wallet/package-lock.json
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - name: Smart contracts (compile + Hardhat tests)
+        working-directory: contracts
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+      - name: Wallet service (simulated + chain conformance)
+        working-directory: packages/wallet
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+      - name: Chain mode end to end (real schema + local Hardhat node)
+        run: deno test -A supabase/tests/chain_mode_test.ts
