@@ -4,7 +4,9 @@ import { Link, useParams } from 'react-router-dom'
 import { Money } from '../components/Money'
 import { MoneyTimeline } from '../components/MoneyTimeline'
 import { StatusBadge } from '../components/StatusBadge'
+import { CheckIcon, FlagIcon, PercentIcon, ScanIcon, SendIcon, WalletIcon } from '../components/landing/icons'
 import { SimulatedBadge, TxHash } from '../components/TxHash'
+import { FrameCard, StatTile } from '../components/ui'
 import { useViewAs } from '../context/ViewAsContext'
 import { api, ApiError } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
@@ -51,47 +53,50 @@ export function ProjectDetailPage() {
 
       {/* Title */}
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{project.code}</span>
-        </div>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{project.name}</h1>
-        <p className="mt-1 text-slate-500">
+        <span className="inline-flex rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-slate-500 shadow-card">
+          {project.code}
+        </span>
+        <h1 className="mt-2 text-[1.75rem] leading-tight text-slate-900 sm:text-[2rem]">{project.name}</h1>
+        <p className="mt-1.5 max-w-3xl text-sm text-slate-500">
           {project.location} · {project.description}
         </p>
       </div>
 
-      {/* Money figures */}
+      {/* Money figures: wallet frame card + pastel stat tiles */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm text-slate-500">Wallet balance</p>
-            {wallet.data && <ModeBadge mode={wallet.data.mode} />}
-          </div>
+        <FrameCard
+          title="Wallet balance"
+          icon={<WalletIcon size={15} />}
+          action={wallet.data && <ModeBadge mode={wallet.data.mode} />}
+          panel="bg-gradient-to-br from-navy-800 to-navy-950 text-white"
+        >
           {wallet.data ? (
             <>
-              <Money cents={wallet.data.balance_cents} className="mt-1 block text-4xl text-slate-900" />
-              <p className="mt-2 text-sm text-slate-500">
-                Available to commit:{' '}
-                <span className="font-semibold text-slate-700">{formatMoney(wallet.data.available_cents)}</span>
-              </p>
-              <p className="text-xs text-slate-400">Balance minus approved invoices not yet paid.</p>
+              <Money cents={wallet.data.balance_cents} className="block text-4xl" />
+              <div className="mt-4 rounded-2xl bg-white/10 px-3.5 py-3">
+                <p className="text-[11px] text-white/60">Available to commit</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{formatMoney(wallet.data.available_cents)}</p>
+                <p className="text-[11px] text-white/50">Balance minus approved invoices not yet paid.</p>
+              </div>
               {wallet.data.wallet_address && (
-                <p className="mt-2 font-mono text-xs break-all text-slate-400">{wallet.data.wallet_address}</p>
+                <p className="mt-3 font-mono text-[11px] break-all text-white/50">{wallet.data.wallet_address}</p>
               )}
             </>
           ) : (
-            <p className="mt-2 text-slate-400">{wallet.error ? wallet.error.message : 'Loading…'}</p>
+            <p className="text-white/60">{wallet.error ? wallet.error.message : 'Loading…'}</p>
           )}
-        </Card>
+        </FrameCard>
 
         <div className="grid grid-cols-2 gap-4 lg:col-span-2">
-          <Figure label="Allocated" cents={project.budget_cents} />
-          <Figure label="Paid out" cents={project.paid_cents} tone="text-brand-700" />
-          <Figure label="Held or rejected" cents={notPaidCents} tone="text-amber-700" note="Never left the wallet" />
-          <Figure
+          <StatTile tone="sky" icon={<WalletIcon size={15} />} label="Allocated" value={<Money cents={project.budget_cents} />} caption="Given to the project" />
+          <StatTile tone="mint" icon={<CheckIcon size={15} />} label="Paid out" value={<Money cents={project.paid_cents} className="text-brand-700" />} caption="Released from the wallet" />
+          <StatTile tone="amber" icon={<FlagIcon size={15} />} label="Held or rejected" value={<Money cents={notPaidCents} className="text-amber-800" />} caption="Never left the wallet" />
+          <StatTile
+            tone="lavender"
+            icon={<PercentIcon size={15} />}
             label="Spent"
-            text={`${project.budget_cents ? ((project.paid_cents / project.budget_cents) * 100).toFixed(1) : '0.0'}%`}
-            note="Of the allocated budget"
+            value={`${project.budget_cents ? ((project.paid_cents / project.budget_cents) * 100).toFixed(1) : '0.0'}%`}
+            caption="Of the allocated budget"
           />
         </div>
       </div>
@@ -99,7 +104,7 @@ export function ProjectDetailPage() {
       {/* Expenditure table */}
       <section className="rounded-card bg-white shadow-card">
         <div className="px-6 pt-6">
-          <h2 className="text-lg font-bold">Expenditure</h2>
+          <h2 className="text-lg">Expenditure</h2>
           <p className="text-sm text-slate-500">Every invoice, including ones that were held or rejected.</p>
         </div>
         {invoices.length === 0 ? (
@@ -107,7 +112,7 @@ export function ProjectDetailPage() {
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-y border-slate-100 bg-slate-50 text-xs text-slate-500 uppercase">
+              <thead className="border-y border-slate-100 text-[11px] tracking-wider text-slate-400 uppercase">
                 <tr>
                   <th className="px-6 py-3 font-semibold">Invoice</th>
                   <th className="px-6 py-3 font-semibold">Supplier</th>
@@ -239,10 +244,19 @@ function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: PublicInvoice[
     <li className="flex flex-wrap items-start justify-between gap-3 py-4">
       <div className="flex min-w-0 gap-3">
         <span
-          className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-            money ? 'bg-brand-600' : 'border-2 border-slate-300 bg-white'
+          aria-hidden="true"
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+            tx.status === 'failed'
+              ? 'bg-red-50 text-red-600'
+              : isOut
+                ? 'bg-navy-900 text-white'
+                : money
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'bg-slate-100 text-slate-500'
           }`}
-        />
+        >
+          {isOut ? <SendIcon size={16} /> : money ? <WalletIcon size={16} /> : <ScanIcon size={16} />}
+        </span>
         <div className="min-w-0">
           <p className="font-medium text-slate-800">
             {TX_LABEL[tx.operation] ?? tx.operation}
@@ -263,7 +277,7 @@ function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: PublicInvoice[
       </div>
       <div className="text-right">
         {money ? (
-          <span className={`font-bold tabular-nums ${isOut ? 'text-slate-900' : 'text-brand-700'}`}>
+          <span className={`font-heading font-bold tabular-nums ${isOut ? 'text-slate-900' : 'text-brand-700'}`}>
             {isOut ? '−' : '+'}
             {formatMoney(tx.amount_cents)}
           </span>
@@ -279,35 +293,14 @@ function LedgerRow({ tx, invoices }: { tx: Transaction; invoices: PublicInvoice[
 
 function MilestoneBadge({ status }: { status: Milestone['status'] }) {
   const s = {
-    pending: { label: 'Not verified yet', cls: 'bg-slate-100 text-slate-600' },
-    verified: { label: 'Verified', cls: 'bg-brand-50 text-brand-700' },
+    pending: { label: 'Not verified yet', cls: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
+    verified: { label: 'Verified', cls: 'bg-brand-50 text-brand-700 ring-1 ring-brand-100', dot: 'bg-brand-500' },
   }[status]
-  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}>{s.label}</span>
-}
-
-function Figure({
-  label,
-  cents,
-  text,
-  tone = 'text-slate-900',
-  note,
-}: {
-  label: string
-  cents?: number
-  text?: string
-  tone?: string
-  note?: string
-}) {
   return (
-    <Card>
-      <p className="text-sm text-slate-500">{label}</p>
-      {cents !== undefined ? (
-        <Money cents={cents} className={`mt-1 block text-xl sm:text-2xl ${tone}`} />
-      ) : (
-        <p className={`mt-1 text-xl font-bold sm:text-2xl ${tone}`}>{text}</p>
-      )}
-      {note && <p className="mt-1 text-xs text-slate-400">{note}</p>}
-    </Card>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      {s.label}
+    </span>
   )
 }
 

@@ -2,10 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AiFindingsCard } from '../components/ai/AiFindingsCard'
+import { BuildingIcon, CalendarIcon, WalletIcon } from '../components/landing/icons'
+import { Money } from '../components/Money'
 import { MoneyTimeline } from '../components/MoneyTimeline'
 import { RequireRole } from '../components/RequireRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { TxHash } from '../components/TxHash'
+import { InfoTile } from '../components/ui'
 import { useViewAs } from '../context/ViewAsContext'
 import { api, ApiError } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
@@ -74,36 +77,67 @@ function ReviewInvoice() {
     <div className="space-y-6">
       <BackLink />
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Invoice {inv.invoice_number}</h1>
-            <StatusBadge status={inv.status} />
+      {/* Header card: title, status and total, then detail tiles */}
+      <section className="rounded-card bg-white p-5 shadow-card sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-slate-500">Invoice</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-3">
+              <h1 className="text-[1.75rem] leading-tight text-slate-900 sm:text-[2rem]">{inv.invoice_number}</h1>
+              <StatusBadge status={inv.status} />
+            </div>
           </div>
-          <p className="mt-1 text-slate-600">
-            {supplier.data?.name ?? 'Supplier'}
-            {supplier.data && (
-              <span className="text-slate-400">
-                {' '}
-                · Reg. {supplier.data.registration_no} · registered {formatDate(supplier.data.registered_on)}
-                {!supplier.data.verified && <span className="font-semibold text-amber-700"> · Not verified</span>}
+          <div className="text-right">
+            <p className="text-xs font-medium text-slate-500">Invoice total</p>
+            <Money cents={inv.total_cents} className="text-3xl text-slate-900" />
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <InfoTile
+            label="Supplier"
+            icon={<BuildingIcon size={13} />}
+            value={
+              <span title={supplier.data ? `Reg. ${supplier.data.registration_no}` : undefined}>
+                {supplier.data?.name ?? 'Supplier'}
               </span>
-            )}
-          </p>
-          <p className="text-sm text-slate-500">
-            <Link to={`/projects/${inv.project_id}`} className="hover:text-brand-700">
-              {project.data?.code ?? 'Project'}
-            </Link>{' '}
-            · Invoice date {formatDate(inv.invoice_date)}
-            {inv.milestone_id && <> · Linked to milestone {milestone?.code ?? ''}</>}
-          </p>
+            }
+          />
+          <InfoTile
+            label="Registered"
+            icon={<CalendarIcon size={13} />}
+            value={
+              supplier.data ? (
+                <>
+                  {formatDate(supplier.data.registered_on)}
+                  {!supplier.data.verified && <span className="ml-1.5 text-xs font-semibold text-amber-700">Not verified</span>}
+                </>
+              ) : (
+                '—'
+              )
+            }
+          />
+          <InfoTile
+            label="Project"
+            icon={<WalletIcon size={13} />}
+            value={
+              <Link to={`/projects/${inv.project_id}`} className="hover:text-brand-700">
+                {project.data?.code ?? 'Project'}
+              </Link>
+            }
+          />
+          <InfoTile
+            label={inv.milestone_id ? 'Invoice date · milestone' : 'Invoice date'}
+            icon={<CalendarIcon size={13} />}
+            value={
+              <>
+                {formatDate(inv.invoice_date)}
+                {inv.milestone_id && <span className="text-slate-500"> · {milestone?.code ?? ''}</span>}
+              </>
+            }
+          />
         </div>
-        <div className="text-right">
-          <p className="text-sm text-slate-500">Invoice total</p>
-          <p className="text-3xl font-bold text-slate-900 tabular-nums">{formatMoney(inv.total_cents)}</p>
-        </div>
-      </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         {/* Left: what was invoiced and what the AI found */}
@@ -153,7 +187,7 @@ function LineItems({ inv }: { inv: InvoiceDetail }) {
       <h2 className="px-6 pt-6 text-lg font-bold">Line items</h2>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[560px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+          <thead className="text-[11px] tracking-wider text-slate-400 uppercase">
             <tr>
               <th className="px-6 py-3 font-semibold">Item</th>
               <th className="px-6 py-3 text-right font-semibold">Qty</th>
@@ -184,7 +218,7 @@ function LineItems({ inv }: { inv: InvoiceDetail }) {
               <td colSpan={3} className="px-6 py-4 text-right font-semibold text-slate-600">
                 Total
               </td>
-              <td className="px-6 py-4 text-right text-lg font-bold whitespace-nowrap tabular-nums">
+              <td className="px-6 py-4 text-right font-heading text-lg font-bold whitespace-nowrap tabular-nums">
                 {formatMoney(inv.total_cents)}
               </td>
             </tr>
@@ -212,7 +246,7 @@ function RunAnalysis({ invoiceId, canRun, onDone }: { invoiceId: string; canRun:
         <button
           onClick={() => analyse.mutate()}
           disabled={analyse.isPending}
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-70"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-navy-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-70"
         >
           {analyse.isPending && <Spinner />}
           {analyse.isPending ? 'Analysing…' : 'Run analysis'}

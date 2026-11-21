@@ -1,7 +1,9 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FlagChip } from '../components/FlagChip'
+import { AlertIcon, CheckIcon, FlagIcon, XIcon } from '../components/landing/icons'
 import { RequireRole } from '../components/RequireRole'
+import { PageHeader, StatTile } from '../components/ui'
 import { api } from '../lib/api'
 import { formatDateTime } from '../lib/dates'
 import { useViewAs } from '../context/ViewAsContext'
@@ -69,19 +71,24 @@ function AuditLog() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Audit log</h1>
-        <p className="mt-1 text-slate-500">
-          Every decision on every invoice, newest first. Read-only. AI recommends; authorised humans decide.
-        </p>
-      </div>
+      <PageHeader
+        greet
+        title="Audit log"
+        subtitle="Every decision on every invoice, newest first. Read-only. AI recommends; authorised humans decide."
+      />
 
       {!loading && !error && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Stat label="Approved" value={count('approve')} />
-          <Stat label="Held" value={count('hold')} tone="text-amber-700" />
-          <Stat label="Rejected" value={count('reject')} tone="text-red-700" />
-          <Stat label="AI overridden" value={overrides} tone={overrides ? 'text-amber-700' : 'text-slate-900'} />
+          <StatTile tone="mint" icon={<CheckIcon size={15} />} label="Approved" value={count('approve')} caption="Decisions to pay" />
+          <StatTile tone="amber" icon={<FlagIcon size={15} />} label="Held" value={count('hold')} caption="Waiting on more checks" />
+          <StatTile tone="rose" icon={<XIcon size={15} />} label="Rejected" value={count('reject')} caption="Will not be paid" />
+          <StatTile
+            tone={overrides ? 'navy' : 'lavender'}
+            icon={<AlertIcon size={15} />}
+            label="AI overridden"
+            value={overrides}
+            caption="Approved against AI flags"
+          />
         </div>
       )}
 
@@ -125,7 +132,7 @@ function AuditLog() {
         {!loading && !error && shown.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <thead className="text-[11px] tracking-wider text-slate-400 uppercase">
                 <tr>
                   <th className="px-6 py-3 font-semibold">When</th>
                   <th className="px-6 py-3 font-semibold">Invoice</th>
@@ -189,11 +196,3 @@ function AuditLog() {
   )
 }
 
-function Stat({ label, value, tone = 'text-slate-900' }: { label: string; value: number; tone?: string }) {
-  return (
-    <div className="rounded-card bg-white p-5 shadow-card">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
-    </div>
-  )
-}

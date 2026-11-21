@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CheckIcon, ScanIcon, SearchIcon, WalletIcon } from '../components/landing/icons'
+import { Money } from '../components/Money'
 import { RequireRole } from '../components/RequireRole'
+import { PageHeader, SegmentedTabs, StatTile } from '../components/ui'
 import { StatusBadge } from '../components/StatusBadge'
 import { TxHash } from '../components/TxHash'
 import { useViewAs } from '../context/ViewAsContext'
@@ -54,53 +57,39 @@ function MyInvoices() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My invoices</h1>
-          <p className="mt-1 text-slate-500">{user?.title}</p>
-        </div>
-        <Link
-          to="/supplier/invoices/new"
-          className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
-        >
-          + New invoice
-        </Link>
-      </div>
+      <PageHeader
+        greet
+        title="My invoices"
+        subtitle="Every invoice you've sent, and exactly where each one stands."
+        action={
+          <Link
+            to="/supplier/invoices/new"
+            className="rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-navy-800"
+          >
+            + New invoice
+          </Link>
+        }
+      />
 
       {/* Summary */}
       {invoices.data && all.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Stat label="Submitted" value={formatMoney(sum(all))} note={`${all.length} invoices`} />
-          <Stat label="In review" value={formatMoney(sum(inTab('review')))} note={`${inTab('review').length} invoices`} />
-          <Stat
-            label="Approved, not paid yet"
-            value={formatMoney(sum(inTab('approved')))}
-            note={`${inTab('approved').length} invoices`}
-          />
-          <Stat
-            label="Paid to you"
-            value={formatMoney(sum(inTab('paid')))}
-            note={`${inTab('paid').length} invoices`}
-            tone="text-brand-700"
-          />
+          <StatTile tone="plain" icon={<ScanIcon size={15} />} label="Submitted" value={<Money cents={sum(all)} />} caption={`${all.length} invoices`} />
+          <StatTile tone="sky" icon={<SearchIcon size={15} />} label="In review" value={<Money cents={sum(inTab('review'))} />} caption={`${inTab('review').length} invoices`} />
+          <StatTile tone="lavender" icon={<CheckIcon size={15} />} label="Approved, not paid yet" value={<Money cents={sum(inTab('approved'))} />} caption={`${inTab('approved').length} invoices`} />
+          <StatTile tone="mint" icon={<WalletIcon size={15} />} label="Paid to you" value={<Money cents={sum(inTab('paid'))} className="text-brand-700" />} caption={`${inTab('paid').length} invoices`} />
         </div>
       )}
 
       <section className="rounded-card bg-white shadow-card">
         {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-4 pb-3">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap ${
-                tab === t.key ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {t.label}
-              {invoices.data && <span className="ml-1.5 text-xs opacity-60">{inTab(t.key).length}</span>}
-            </button>
-          ))}
+        <div className="border-b border-slate-100 px-4 pt-4 pb-4">
+          <SegmentedTabs
+            label="Filter invoices"
+            active={tab}
+            onChange={setTab}
+            tabs={TABS.map((t) => ({ key: t.key, label: t.label, count: invoices.data ? inTab(t.key).length : undefined }))}
+          />
         </div>
 
         {invoices.isPending && (
@@ -144,7 +133,7 @@ function MyInvoices() {
         {shown.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <thead className="text-[11px] tracking-wider text-slate-400 uppercase">
                 <tr>
                   <th className="px-6 py-3 font-semibold">Invoice</th>
                   <th className="px-6 py-3 font-semibold">Project</th>
@@ -222,12 +211,3 @@ function statusHint(inv: Invoice, milestoneCode: string): string {
   }
 }
 
-function Stat({ label, value, note, tone = 'text-slate-900' }: { label: string; value: string; note: string; tone?: string }) {
-  return (
-    <div className="rounded-card bg-white p-5 shadow-card">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold tabular-nums sm:text-2xl ${tone}`}>{value}</p>
-      <p className="text-xs text-slate-400">{note}</p>
-    </div>
-  )
-}

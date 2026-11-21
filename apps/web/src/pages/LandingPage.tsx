@@ -180,25 +180,40 @@ function Intro() {
 
 // ---------- 4. How CivicProof helps (bento, ref: LucenAI) ----------
 
+// Frame-in-frame card (ref: widget cards): white frame with icon + title, tinted inner panel.
+const PANEL = {
+  sky: { panel: 'bg-gradient-to-br from-sky-50 to-sky-100/60', icon: 'bg-sky-100 text-sky-700' },
+  lavender: { panel: 'bg-gradient-to-br from-violet-50 to-violet-100/60', icon: 'bg-violet-100 text-violet-700' },
+  mint: { panel: 'bg-gradient-to-br from-emerald-50 to-brand-100/50', icon: 'bg-brand-100 text-brand-700' },
+  amber: { panel: 'bg-gradient-to-br from-amber-50 to-orange-100/50', icon: 'bg-amber-100 text-amber-700' },
+  slate: { panel: 'bg-gradient-to-br from-slate-50 to-slate-100', icon: 'bg-slate-200 text-slate-700' },
+} as const
+
 function BentoCard({
   icon,
   title,
   body,
+  tint,
   className = '',
   children,
 }: {
   icon: ReactNode
   title: string
   body: string
+  tint: keyof typeof PANEL
   className?: string
   children?: ReactNode
 }) {
   return (
-    <div className={`flex flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card ${className}`}>
-      <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-700">{icon}</span>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1.5 text-sm text-slate-600">{body}</p>
-      {children}
+    <div className={`flex flex-col rounded-[28px] bg-white p-2 shadow-card ${className}`}>
+      <div className="flex items-center gap-2.5 px-3 pt-2 pb-3">
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${PANEL[tint].icon}`}>{icon}</span>
+        <h3 className="text-base text-slate-900">{title}</h3>
+      </div>
+      <div className={`flex flex-1 flex-col rounded-[22px] p-5 ${PANEL[tint].panel}`}>
+        <p className="text-sm text-slate-600">{body}</p>
+        {children}
+      </div>
     </div>
   )
 }
@@ -213,7 +228,8 @@ function Helps() {
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         <div className="grid gap-5">
           <BentoCard
-            icon={<WalletIcon />}
+            icon={<WalletIcon size={17} />}
+            tint="sky"
             title="Its own wallet."
             body="Every project gets a separate wallet, and all of its payments come out of that wallet."
           >
@@ -223,7 +239,8 @@ function Helps() {
             </div>
           </BentoCard>
           <BentoCard
-            icon={<GavelIcon />}
+            icon={<GavelIcon size={17} />}
+            tint="lavender"
             title="A person makes the call."
             body="An official approves the invoice, puts it on hold, or turns it down. The AI only gives advice."
           >
@@ -236,12 +253,12 @@ function Helps() {
         </div>
 
         <BentoCard
-          icon={<ScanIcon />}
+          icon={<ScanIcon size={17} />}
+          tint="mint"
           title="Invoices get checked."
           body="Before anyone is paid, AI compares each invoice with what those items normally cost."
-          className="bg-gradient-to-b from-brand-50 to-white"
         >
-          <div className="mt-6 flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mt-5 flex-1 rounded-2xl bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-400 uppercase">Invoice PD-0147 · line 1</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">250mm HDPE pipe, 12 m</p>
             <div className="mt-4 space-y-3 text-xs">
@@ -273,11 +290,12 @@ function Helps() {
 
         <div className="grid gap-5">
           <BentoCard
-            icon={<CameraIcon />}
+            icon={<CameraIcon size={17} />}
+            tint="amber"
             title="Proof the work was done."
             body="Final payment waits for photos of the work and a thumbs-up from people who live there."
           >
-            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600">
+            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white/80 p-3 text-xs text-slate-600 shadow-sm">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-100 text-sky-700">
                 <CameraIcon size={18} />
               </span>
@@ -289,11 +307,12 @@ function Helps() {
             </div>
           </BentoCard>
           <BentoCard
-            icon={<LinkIcon />}
+            icon={<LinkIcon size={17} />}
+            tint="slate"
             title="Records that can't be secretly changed."
             body="Every payment is saved on a blockchain, a shared record that nobody can quietly edit later."
           >
-            <p className="mt-4 truncate rounded-xl bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-500">
+            <p className="mt-4 truncate rounded-xl bg-white/80 px-3 py-2 font-mono text-[11px] text-slate-500 shadow-sm">
               0xa9e1172889bddfa3846e9e448dd4…
             </p>
           </BentoCard>
@@ -427,25 +446,25 @@ const WHO = [
     icon: <HomeIcon size={22} />,
     name: 'Residents',
     body: "can see where their community's money goes and speak up when something looks wrong.",
-    cls: 'bg-brand-50 text-brand-700',
+    tint: 'mint' as const,
   },
   {
     icon: <TruckIcon size={22} />,
     name: 'Suppliers',
     body: 'can send invoices and see exactly where each one stands.',
-    cls: 'bg-sky-100 text-sky-700',
+    tint: 'sky' as const,
   },
   {
     icon: <BuildingIcon size={22} />,
     name: 'Officials',
     body: 'can spend their time on the invoices that need a closer look.',
-    cls: 'bg-amber-100 text-amber-700',
+    tint: 'amber' as const,
   },
   {
     icon: <SearchIcon size={22} />,
     name: 'Auditors',
     body: 'can check decisions as they happen, without waiting for the year-end report.',
-    cls: 'bg-navy-900 text-white',
+    tint: 'lavender' as const,
   },
 ]
 
@@ -455,12 +474,16 @@ function Who() {
       <SectionHeading title="Made for everyone with a stake in public money" />
       <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {WHO.map((w) => (
-          <div key={w.name} className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-card">
-            <span className={`mx-auto grid h-14 w-14 place-items-center rounded-full ${w.cls}`}>{w.icon}</span>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">{w.name}</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              {w.name} {w.body}
-            </p>
+          <div key={w.name} className="flex flex-col rounded-[28px] bg-white p-2 shadow-card">
+            <h3 className="px-3 pt-2 pb-3 text-base text-slate-900">{w.name}</h3>
+            <div className={`flex flex-1 flex-col rounded-[22px] p-5 ${PANEL[w.tint].panel}`}>
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-800 shadow-sm">
+                {w.icon}
+              </span>
+              <p className="mt-4 text-sm text-slate-600">
+                {w.name} {w.body}
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -505,10 +528,30 @@ function ResidentsSay() {
 // ---------- 10. What CivicProof does ----------
 
 const DOES = [
-  { title: 'Flags risky invoices', body: 'The AI checks every invoice against normal prices and the project budget before anyone is paid.' },
-  { title: 'Puts a person in charge', body: 'Every warning goes to an authorised official, who approves, holds or rejects it.' },
-  { title: 'Keeps a permanent record', body: 'Every payment and decision is saved on the blockchain, where nobody can quietly change it.' },
-  { title: 'Lets residents confirm', body: 'People who live there say whether the work really happened before the last payment goes out.' },
+  {
+    title: 'Flags risky invoices',
+    body: 'The AI checks every invoice against normal prices and the project budget before anyone is paid.',
+    icon: <ScanIcon size={17} />,
+    tint: 'mint' as const,
+  },
+  {
+    title: 'Puts a person in charge',
+    body: 'Every warning goes to an authorised official, who approves, holds or rejects it.',
+    icon: <GavelIcon size={17} />,
+    tint: 'lavender' as const,
+  },
+  {
+    title: 'Keeps a permanent record',
+    body: 'Every payment and decision is saved on the blockchain, where nobody can quietly change it.',
+    icon: <LinkIcon size={17} />,
+    tint: 'sky' as const,
+  },
+  {
+    title: 'Lets residents confirm',
+    body: 'People who live there say whether the work really happened before the last payment goes out.',
+    icon: <ChatIcon size={17} />,
+    tint: 'amber' as const,
+  },
 ]
 
 function WhatItDoes() {
@@ -519,14 +562,17 @@ function WhatItDoes() {
         sub="It catches problems before money moves, and keeps proof of every payment for anyone to see."
       />
       <ul className="mx-auto mt-10 grid max-w-5xl gap-5 sm:grid-cols-2">
-        {DOES.map((d) => (
-          <li key={d.title} className="flex gap-4 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">
-              <CheckIcon size={20} />
-            </span>
-            <div>
-              <h3 className="font-semibold text-slate-900">{d.title}</h3>
-              <p className="mt-1 text-sm text-slate-600">{d.body}</p>
+        {DOES.map((d, i) => (
+          <li key={d.title} className="flex flex-col rounded-[28px] bg-white p-2 shadow-card">
+            <div className="flex items-center gap-2.5 px-3 pt-2 pb-3">
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${PANEL[d.tint].icon}`}>{d.icon}</span>
+              <h3 className="text-base text-slate-900">{d.title}</h3>
+            </div>
+            <div className={`flex flex-1 items-start gap-4 rounded-[22px] p-5 ${PANEL[d.tint].panel}`}>
+              <span className="font-heading text-2xl font-bold text-slate-900/15 tabular-nums">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <p className="text-sm text-slate-600">{d.body}</p>
             </div>
           </li>
         ))}
