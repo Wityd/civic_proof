@@ -2,15 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AiFindingsCard } from '../components/ai/AiFindingsCard'
+import { MoneyTimeline } from '../components/MoneyTimeline'
 import { RequireRole } from '../components/RequireRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { TxHash } from '../components/TxHash'
 import { useViewAs } from '../context/ViewAsContext'
 import { api, ApiError } from '../lib/api'
 import { formatDate, formatDateTime } from '../lib/dates'
-import { approverName, invoiceFlags, latestReview, movesMoney, releaseTx, TX_LABEL } from '../lib/ledger'
+import { approverName, invoiceFlags, latestReview, releaseTx } from '../lib/ledger'
 import { formatMoney } from '../lib/money'
 import { useProject } from '../lib/queries'
+import { fullTimeline } from '../lib/timeline'
 import type { Approval, DecisionResult, InvoiceDetail, Milestone, Supplier } from '../types'
 
 export function ReviewInvoicePage() {
@@ -136,7 +138,7 @@ function ReviewInvoice() {
               </p>
             </Card>
           )}
-          <History inv={inv} />
+          <FollowTheMoney inv={inv} milestone={milestone} />
         </div>
       </div>
     </div>
@@ -434,46 +436,35 @@ function PaymentPanel({
   )
 }
 
-// ---------- history ----------
+// ---------- follow the money ----------
 
 const DECISION_LABEL = { approve: 'Approved', hold: 'Put on hold', reject: 'Rejected' }
-function History({ inv }: { inv: InvoiceDetail }) {
+
+function FollowTheMoney({ inv, milestone }: { inv: InvoiceDetail; milestone: Milestone | undefined }) {
   const { users } = useViewAs()
-  if (inv.approvals.length === 0 && inv.transactions.length === 0) return null
+  // The timeline shows the latest decision; earlier ones (e.g. a hold before an approval) are listed below it.
+  const earlier = [...inv.approvals].sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, -1)
   return (
     <Card>
-      <h2 className="text-lg font-bold">History</h2>
-      <ul className="mt-3 space-y-4">
-        {inv.approvals.map((a) => (
-          <li key={a.id} className="text-sm">
-            <p className="font-semibold text-slate-800">
-              {DECISION_LABEL[a.decision]} by {approverName(a, users)}
-              {a.overrode_ai && (
-                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">AI overridden</span>
-              )}
-            </p>
-            <p className="text-xs text-slate-500">{formatDateTime(a.created_at)}</p>
-            {a.reason && <p className="mt-1 text-slate-600">“{a.reason}”</p>}
-          </li>
-        ))}
-        {inv.transactions.map((t) => (
-          <li key={t.id} className="text-sm">
-            <p className="font-semibold text-slate-800">
-              {TX_LABEL[t.operation] ?? t.operation}
-              {movesMoney(t) && <> · {formatMoney(t.amount_cents)}</>}
-              {t.status !== 'confirmed' && (
-                <span className={`ml-2 text-xs ${t.status === 'failed' ? 'text-red-600' : 'text-sky-700'}`}>
-                  {t.status === 'failed' ? 'Failed' : 'Pending'}
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-slate-500">{formatDateTime(t.created_at)}</p>
-            <div className="mt-1">
-              <TxHash hash={t.tx_hash} mode={t.mode} />
-            </div>
-          </li>
-        ))}
-      </ul>
+      <h2 className="text-lg font-bold">Follow the money</h2>
+      <p className="mb-4 text-xs text-slate-500">Every step this invoice has been through.</p>
+      <MoneyTimeline steps={fullTimeline(inv, milestone, users)} />
+      {earlier.length > 0 && (
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Earlier decisions</p>
+          <ul className="mt-2 space-y-3">
+            {earlier.map((a) => (
+              <li key={a.id} className="text-sm">
+                <p className="font-medium text-slate-700">
+                  {DECISION_LABEL[a.decision]} by {approverName(a, users)}
+                </p>
+                <p className="text-xs text-slate-400">{formatDateTime(a.created_at)}</p>
+                {a.reason && <p className="text-slate-600">“{a.reason}”</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Card>
   )
 }
