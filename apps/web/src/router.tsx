@@ -5,6 +5,7 @@ import { ConfirmDeliveryPage } from './pages/ConfirmDeliveryPage'
 import { ErrorPage } from './pages/ErrorPage'
 import { EvidencePage } from './pages/EvidencePage'
 import { LandingPage } from './pages/LandingPage'
+import { TeamPage } from './pages/TeamPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { MyInvoicesPage } from './pages/MyInvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
@@ -16,6 +17,7 @@ import { ProjectsPage } from './pages/ProjectsPage'
 export const routes: RouteObject[] = [
   // Public landing page: its own full-width layout and nav.
   { index: true, element: <LandingPage />, errorElement: <ErrorPage /> },
+  { path: 'team', element: <TeamPage />, errorElement: <ErrorPage /> },
   {
     element: <Layout />,
     errorElement: <ErrorPage />, // a crash shows a friendly page instead of a blank screen

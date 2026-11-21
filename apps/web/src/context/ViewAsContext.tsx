@@ -23,7 +23,7 @@ const ViewAsContext = createContext<ViewAsValue | null>(null)
 // In real mode the switcher lists roles; the id is the role name.
 const REAL_USERS: DemoUser[] = ROLES.map((role) => ({
   id: role,
-  display_name: 'demo account',
+  display_name: '', // the switcher shows just the role until signed in
   role,
   title: demoEmail(role),
   supplier_ids: [],
