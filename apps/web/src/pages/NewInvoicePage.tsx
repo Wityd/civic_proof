@@ -184,14 +184,19 @@ function NewInvoiceForm() {
                 </Field>
               </div>
             )}
-            <Field label="Project" error={errors.project}>
+            <Field
+              label="Project"
+              error={errors.project ?? (projects.error ? `Could not load projects: ${projects.error.message}` : undefined)}
+            >
               <select
                 value={projectId}
                 onChange={(e) => chooseProject(e.target.value)}
                 className={inputCls(errors.project)}
-                disabled={projects.isPending}
+                disabled={projects.isPending || !!projects.error}
               >
-                <option value="">{projects.isPending ? 'Loading…' : 'Choose a project'}</option>
+                <option value="">
+                  {projects.isPending ? 'Loading…' : projects.error ? 'Projects unavailable' : 'Choose a project'}
+                </option>
                 {projects.data?.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.code} · {p.name}
